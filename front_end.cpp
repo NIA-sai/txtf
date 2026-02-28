@@ -499,7 +499,9 @@ namespace front_end
 		ImVec2 size;
 		for ( size_t i = 0; i < content.size(); ++i )
 		{
-			size = ImGui::CalcTextSize( &content[i], &content[i + 1] );
+			const char *endc = i + 1 == content.size() ? nullptr : &content[i + 1];
+			size = ImGui::CalcTextSize( &content[i],
+			                            endc );
 			if ( pos.x + size.x > wrap_x )
 			{
 				pos.x = line_start_x;
@@ -508,10 +510,10 @@ namespace front_end
 			if ( i >= start && i < end )
 			{
 				draw->AddRectFilled( pos, ImVec2( pos.x + size.x, pos.y + size.y ), ImGui::ColorConvertFloat4ToU32( palette::Highlight ) );
-				draw->AddText( pos, ImGui::ColorConvertFloat4ToU32( palette::Error ), &content[i], &content[i + 1] );
+				draw->AddText( pos, ImGui::ColorConvertFloat4ToU32( palette::Error ), &content[i], endc );
 			}
 			else
-				draw->AddText( pos, ImGui::ColorConvertFloat4ToU32( palette::TextDim ), &content[i], &content[i + 1] );
+				draw->AddText( pos, ImGui::ColorConvertFloat4ToU32( palette::TextDim ), &content[i], endc );
 			pos.x += size.x;
 		}
 		ImGui::Dummy( ImVec2( 0, pos.y - ImGui::GetCursorScreenPos().y + ( pos.x > line_start_x ? size.y : 0 ) ) );
@@ -903,6 +905,7 @@ namespace front_end
 		}
 
 		auto &arr = accumulated.array();
+		std::cout << arr;
 		for ( auto &v : arr )
 		{
 			if ( v.empty() ) continue;

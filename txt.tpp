@@ -141,7 +141,7 @@ struct TXT_String : TXT< C >
 	bool isRightOpened() const { return str.empty(); }
 	bool readNext()
 	{
-		if ( TXT< C >::position >= str.size() )
+		if ( TXT< C >::position > str.size() )
 			return false;
 		++TXT< C >::position;
 		++TXT< C >::last_position;
