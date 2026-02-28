@@ -1,4 +1,4 @@
 #pragma once
 struct SimpleSpliter;
 struct SingleCharSpliter;
-#include "spliter.ftp"
+#include "spliter.tpp"

@@ -1,5 +1,5 @@
 #pragma once
-#include "spliter.hpp"
+
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <atomic>
@@ -113,46 +113,6 @@ namespace front_end
 
 	struct AppState
 	{
-		struct DemoIndexStep
-		{
-			size_t docIndex = 0;
-			std::string docName;
-			std::string token;
-			size_t start = 0;
-			size_t end = 0;
-			const char *context;
-			size_t contextStart = 0;
-			size_t contextEnd = 0;
-		};
-
-		struct DemoMergePointerStep
-		{
-			size_t i = 0;
-			size_t j = 0;
-			int leftDoc = -1;
-			int rightDoc = -1;
-			int k = -1;
-			int l = -1;
-			size_t leftPos = 0;
-			size_t rightPos = 0;
-			std::string action;
-			int addFrom = 0;  // 0:none 1:left 2:right 3:both
-		};
-
-		struct DemoMergeStep
-		{
-			std::string lhs;
-			std::string rhs;
-			std::string op;
-			size_t lhsDocs = 0;
-			size_t rhsDocs = 0;
-			size_t outDocs = 0;
-			std::vector< std::vector< size_t > > lhsRows;
-			std::vector< std::vector< size_t > > rhsRows;
-			std::vector< std::vector< size_t > > outRows;
-			std::vector< DemoMergePointerStep > pointerSteps;
-			size_t pointerCursor = 0;
-		};
 		std::vector< DocEntry > docs;
 
 
@@ -177,8 +137,7 @@ namespace front_end
 			Simple
 		};
 		SplitterMode splitterMode = SplitterMode::Simple;
-		SimpleSpliter simpleSplitter{};
-		SingleCharSpliter singleCharSplitter{};
+
 		char filePathBuf[32768] = "";
 		char textBuf[4096] = "";
 
@@ -212,39 +171,6 @@ namespace front_end
 
 
 		char indexFilter[128] = "";
-		bool showIndexDemoPage = false;
-		bool showMergeDemoPage = false;
-
-		bool demoIndexAuto = false;
-		int demoIndexDelayMs = 600;
-		double demoIndexLastStepAt = 0.0;
-		DemoIndexStep demoIndexStep;
-		size_t demoIndexCursor = 0;
-
-		float demoWheelScale = 1.0f;
-		ImVec2 demoWheelPan = ImVec2( 0.0f, 0.0f );
-		float demoWheelRotation = 0.0f;
-		float demoWheelTargetRotation = 0.0f;
-
-		bool demoMergeAuto = false;
-		int demoMergeDelayMs = 700;
-		double demoMergeLastStepAt = 0.0;
-		std::vector< DemoMergeStep > demoMergeSteps;
-		size_t demoMergeCursor = 0;
-		size_t demoCurrentDocs = 0;
-		std::string demoExpr;
-
-		float demoMergeCanvasScale = 1.0f;
-		ImVec2 demoMergeCanvasPan = ImVec2( 0.0f, 0.0f );
-		float demoAnimI = 0.0f;
-		float demoAnimJ = 0.0f;
-		float demoAnimOut = 0.0f;
-		int demoLastStepSeen = -1;
-		bool demoFlyActive = false;
-		float demoFlyT = 0.0f;
-		ImVec2 demoFlyFrom = ImVec2( 0, 0 );
-		ImVec2 demoFlyTo = ImVec2( 0, 0 );
-		int demoFlyDoc = -1;
 	};
 
 
@@ -260,15 +186,12 @@ namespace front_end
 	void RenderPerfPanel( AppState &s );
 	void RenderStatusBar( AppState &s );
 	void RenderPopups( AppState &s );
-	void RenderIndexDemoPage( AppState &s );
-	void RenderMergeDemoPage( AppState &s );
+
 	void DoSearch( AppState &s );
 
 
-	std::string ReadDocContent( AppState &s, size_t docIndex, size_t start, size_t end, int len, size_t &newStart, size_t &newEnd );
-	std::string WtoU8( const std::wstring &ws );
-	void ShowContextSnippet( std::string content, size_t start,
-	                         size_t end );
+	std::string ReadDocContent( AppState &s, size_t docIndex );
+
 
 #ifdef _WIN32
 	std::vector< std::wstring > OpenFileDialog( GLFWwindow *win );

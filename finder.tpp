@@ -42,6 +42,7 @@ struct Finder
 	inline static vector< filename_t > Allow_Extensions = { L".txt", L".cpp", L".h", L".md" };
 	// size_t count = 0;
 	size_t first_unindexed = 0, posCnt = 0;
+	size_t first_un_step_indexed = 0;
 	vector< ptr< TXT< C > > > txts;
 	map index;
 	Index_Creator index_creator;
@@ -93,7 +94,7 @@ struct Finder
 	{
 		for ( ; first_unindexed < txts.size(); ++first_unindexed )
 		{
-			posCnt += txts[first_unindexed]->create_index( index, txts.size(), index_creator, first_unindexed, std::move( s ) );
+			posCnt += txts[first_unindexed]->create_index( index, txts.size(), index_creator, first_unindexed, std::forward( s ) );
 		}
 	}
 
@@ -106,7 +107,7 @@ struct Finder
 			if ( txts[first_unindexed]->isSelected() )
 			{
 				current = first_unindexed;
-				posCnt += txts[first_unindexed]->create_index( index, txts.size(), index_creator, first_unindexed, std::move( s ) );
+				posCnt += txts[first_unindexed]->create_index( index, txts.size(), index_creator, first_unindexed, std::forward( s ) );
 				++doneCount;
 			}
 		}
@@ -117,7 +118,27 @@ struct Finder
 		first_unindexed = 0;
 		index.clear();
 	}
-
+	void restart()
+	{
+		for ( auto &txt : txts ) txt->restart();
+	}
+	void step_restart()
+	{
+		first_un_step_indexed = 0;
+		for ( auto &txt : txts ) txt->restart();
+	}
+	template < typename S = SimpleSpliter >
+	bool step_next( S &&s, size_t &start, size_t &end, size_t &txtId, std::basic_string< C > &str )
+	{
+		while ( !txts[first_un_step_indexed]->isSelected() && first_un_step_indexed < txts.size() )
+			++first_un_step_indexed;
+		if ( first_un_step_indexed >= txts.size() ) return false;
+		if ( s.step( txts[first_un_step_indexed].get(), start, end, str ) )
+			return true;
+		++first_un_step_indexed;
+		step_pos = 0;
+		return step_next( std::forward( s ), start, end, txtId, str );
+	}
 
 	struct Result
 	{
@@ -236,7 +257,7 @@ struct Finder
 				{
 					orr.emplace_back( vector< size_t >{ a } );
 					orr.back().reserve( results->at( i ).size() + other.results->at( j ).size() - 1 );
-					size_t k = 1, l = 1,resti;
+					size_t k = 1, l = 1, resti;
 					auto &v = orr.back();
 					while ( k < results->at( i ).size() && l < other.results->at( j ).size() )
 					{
@@ -288,11 +309,5 @@ struct Finder
 		if ( index.find( text ) != index.end() )
 			return Result{ index.at( text ), &txts };
 		return Result{};
-	}
-	Result raw_find( const string &text ) const
-	{
-		if ( index.find( text ) != index.end() )
-			return { index.at( text ) };
-		return {};
 	}
 };

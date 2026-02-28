@@ -42,6 +42,35 @@ struct SimpleSpliter
 		}
 		return pos;
 	}
+	template < typename C >
+	bool step( TXT< C > *txt, size_t &start, size_t &end, std::basic_string< C > &str )
+	{
+		str.clear();
+		bool unStart = true;
+		while ( txt->readNext() )
+		{
+			if ( isLetter( txt->currentChar() ) )
+			{
+				str += txt->currentChar();
+				if ( unStart )
+				{
+					unStart = false;
+					start = txt->last_position;
+				}
+			}
+			else
+			{
+				if ( str.empty() )
+					continue;
+				end = txt->last_position;
+				return true;
+			}
+		}
+		if ( str.empty() )
+			return false;
+		end = txt->last_position;
+		return true;
+	}
 };
 struct SingleCharSpliter
 {
@@ -88,5 +117,40 @@ struct SingleCharSpliter
 		}
 
 		return pos;
+	}
+
+
+	template < typename C >
+	bool step( TXT< C > *txt, size_t &start, size_t &end, std::basic_string< C > &str )
+	{
+		str.clear();
+		while ( txt->readNext() )
+		{
+			std::string utf8_char;
+
+			unsigned char c = static_cast< unsigned char >( txt->currentChar() );
+
+			unsigned short len = 0;
+			if ( c < 0x80 )
+				len = 1;
+			else if ( ( c & 0xE0 ) == 0xC0 )
+				len = 2;
+			else if ( ( c & 0xF0 ) == 0xE0 )
+				len = 3;
+			else if ( ( c & 0xF8 ) == 0xF0 )
+				len = 4;
+			else
+				continue;
+			utf8_char.push_back( static_cast< char >( c ) );
+			start = txt->last_position;
+			while ( --len )
+			{
+				if ( !txt->readNext() )
+					break;
+			}
+			end = txt->position;
+			return true;
+		}
+		return false;
 	}
 };

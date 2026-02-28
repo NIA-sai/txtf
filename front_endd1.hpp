@@ -1,5 +1,5 @@
 #pragma once
-#include "spliter.hpp"
+
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <atomic>
@@ -113,14 +113,14 @@ namespace front_end
 
 	struct AppState
 	{
-		struct DemoIndexStep
+			struct DemoIndexStep
 		{
 			size_t docIndex = 0;
 			std::string docName;
 			std::string token;
 			size_t start = 0;
 			size_t end = 0;
-			const char *context;
+			std::string context;
 			size_t contextStart = 0;
 			size_t contextEnd = 0;
 		};
@@ -153,6 +153,8 @@ namespace front_end
 			std::vector< DemoMergePointerStep > pointerSteps;
 			size_t pointerCursor = 0;
 		};
+
+
 		std::vector< DocEntry > docs;
 
 
@@ -177,8 +179,7 @@ namespace front_end
 			Simple
 		};
 		SplitterMode splitterMode = SplitterMode::Simple;
-		SimpleSpliter simpleSplitter{};
-		SingleCharSpliter singleCharSplitter{};
+
 		char filePathBuf[32768] = "";
 		char textBuf[4096] = "";
 
@@ -212,19 +213,16 @@ namespace front_end
 
 
 		char indexFilter[128] = "";
+
+		
 		bool showIndexDemoPage = false;
 		bool showMergeDemoPage = false;
 
 		bool demoIndexAuto = false;
 		int demoIndexDelayMs = 600;
 		double demoIndexLastStepAt = 0.0;
-		DemoIndexStep demoIndexStep;
+		std::vector< DemoIndexStep > demoIndexSteps;
 		size_t demoIndexCursor = 0;
-
-		float demoWheelScale = 1.0f;
-		ImVec2 demoWheelPan = ImVec2( 0.0f, 0.0f );
-		float demoWheelRotation = 0.0f;
-		float demoWheelTargetRotation = 0.0f;
 
 		bool demoMergeAuto = false;
 		int demoMergeDelayMs = 700;
@@ -233,18 +231,6 @@ namespace front_end
 		size_t demoMergeCursor = 0;
 		size_t demoCurrentDocs = 0;
 		std::string demoExpr;
-
-		float demoMergeCanvasScale = 1.0f;
-		ImVec2 demoMergeCanvasPan = ImVec2( 0.0f, 0.0f );
-		float demoAnimI = 0.0f;
-		float demoAnimJ = 0.0f;
-		float demoAnimOut = 0.0f;
-		int demoLastStepSeen = -1;
-		bool demoFlyActive = false;
-		float demoFlyT = 0.0f;
-		ImVec2 demoFlyFrom = ImVec2( 0, 0 );
-		ImVec2 demoFlyTo = ImVec2( 0, 0 );
-		int demoFlyDoc = -1;
 	};
 
 
@@ -265,10 +251,8 @@ namespace front_end
 	void DoSearch( AppState &s );
 
 
-	std::string ReadDocContent( AppState &s, size_t docIndex, size_t start, size_t end, int len, size_t &newStart, size_t &newEnd );
-	std::string WtoU8( const std::wstring &ws );
-	void ShowContextSnippet( std::string content, size_t start,
-	                         size_t end );
+	std::string ReadDocContent( AppState &s, size_t docIndex );
+
 
 #ifdef _WIN32
 	std::vector< std::wstring > OpenFileDialog( GLFWwindow *win );

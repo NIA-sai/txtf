@@ -1,7 +1,6 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include "front_end.hpp"
 #include <GLFW/glfw3native.h>
-#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <thread>
@@ -653,9 +652,7 @@ namespace front_end
 			ImGui::PushID( static_cast< int >( i ) );
 
 			bool prev = doc.selected;
-			ImGui::BeginDisabled( s.indexStatus == AppState::IndexStatus::Building );
 			ImGui::Checkbox( "##sel", &doc.selected );
-			ImGui::EndDisabled();
 			if ( prev != doc.selected )
 			{
 				if ( doc.selected )
@@ -845,13 +842,13 @@ namespace front_end
 		if ( s.queryTerms.empty() || std::strlen( s.queryTerms[0].word ) == 0 ) return;
 
 		s.results.clear();
-		// for ( size_t i = 0; i < s.docs.size(); ++i )
-		// {
-		// 	if ( s.docs[i].selected )
-		// 		s.finder->select( i );
-		// 	else
-		// 		s.finder->deselect( i );
-		// }
+		for ( size_t i = 0; i < s.docs.size(); ++i )
+		{
+			if ( s.docs[i].selected )
+				s.finder->select( i );
+			else
+				s.finder->deselect( i );
+		}
 		std::string qDesc;
 		std::string modeStr;
 
@@ -1040,11 +1037,11 @@ namespace front_end
 
 				if ( !r.positions.empty() )
 				{
-					// ImGui::SameLine();
+					ImGui::SameLine();
 
-					// ImGui::Spacing();
-					// ImGui::SameLine();
-					// ImGui::SetCursorPosY( ImGui::GetCursorPosY() - offsetY );
+					ImGui::Spacing();
+					ImGui::SameLine();
+					ImGui::SetCursorPosY( ImGui::GetCursorPosY() - offsetY );
 
 					ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.90f, 0.92f, 0.95f, 1.0f ) );
 					ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.82f, 0.86f, 0.92f, 1.0f ) );
@@ -1550,7 +1547,7 @@ namespace front_end
 		else if ( s.indexStatus == AppState::IndexStatus::Building )
 		{
 			ImGui::PushStyleColor( ImGuiCol_Text, palette::Primary );
-			ImGui::Text( "[INDEX BUILDING] (%zu/%zu) NOW:%zu", s.downCount.load(), s.totalCount, s.currentDocIndex.load() );
+			ImGui::Text( "[INDEX BUILDING] (%zu/%zu) now:%zu", s.downCount.load(), s.totalCount, s.currentDocIndex.load() );
 			ImGui::PopStyleColor();
 		}
 		else
@@ -1935,7 +1932,6 @@ namespace front_end
 						auto t1 = std::chrono::high_resolution_clock::now();
 						state.indexTimeMs = std::chrono::duration< double, std::milli >( t1 - t0 ).count();
 					}
-					ImGui::BeginDisabled( state.indexStatus == AppState::IndexStatus::Building );
 					if ( ImGui::BeginMenu( "分词方式" ) )
 					{
 						if ( ImGui::MenuItem( "单字符分词器", "utf-8", state.splitterMode == AppState::SplitterMode::Single ) )
@@ -1943,26 +1939,6 @@ namespace front_end
 						if ( ImGui::MenuItem( "简单分词器", "仅支持英文", state.splitterMode == AppState::SplitterMode::Simple ) )
 							state.splitterMode = AppState::SplitterMode::Simple;
 						ImGui::EndMenu();
-					}
-					ImGui::EndDisabled();
-					ImGui::EndMenu();
-				}
-				if ( ImGui::BeginMenu( "页面" ) )
-				{
-					ImGui::BeginDisabled( state.indexStatus == AppState::IndexStatus::NotBuilt || state.indexStatus == AppState::IndexStatus::Building );
-					if ( ImGui::MenuItem( "索引演示", "需先直接创建索引" ) && !state.showIndexDemoPage )
-					{
-						state.showIndexDemoPage = true;
-						state.finder->step_restart();
-						// state.demoIndexSteps.clear();
-					}
-					ImGui::EndDisabled();
-
-					if ( ImGui::MenuItem( "合并演示" ) && !state.showMergeDemoPage )
-					{
-						state.showMergeDemoPage = true;
-						state.demoMergeSteps.clear();
-						state.demoMergeCursor = 0;
 					}
 					ImGui::EndMenu();
 				}
@@ -2100,8 +2076,7 @@ namespace front_end
 
 
 			RenderPopups( state );
-			RenderIndexDemoPage( state );
-			RenderMergeDemoPage( state );
+
 			ImGui::End();
 
 
