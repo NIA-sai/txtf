@@ -2,11 +2,11 @@
 
 #include <cstring>
 #include <functional>
+#include <iostream>
 #include <iterator>
 #include <stdexcept>
 #include <utility>
 #include <vector>
-
 template <
     typename K,
     typename V,
@@ -25,6 +25,34 @@ struct HashMap
 		{
 			delete data;
 		}
+		Bucket( const Bucket &other ) : hash( other.hash ), occupied( other.occupied ), data( new std::pair< const K, V >( *other.data ) ) {}
+
+		Bucket &operator=( const Bucket &other )
+		{
+			if ( this != &other )
+			{
+				hash = other.hash;
+				occupied = other.occupied;
+				delete data;
+				data = new std::pair< const K, V >( *other.data );
+			}
+		}
+		Bucket( Bucket &&other ) : hash( other.hash ), occupied( other.occupied ), data( other.data )
+		{
+			other.data = nullptr;
+		}
+
+		Bucket &operator=( Bucket &&other )
+		{
+			if ( this != &other )
+			{
+				hash = other.hash;
+				occupied = other.occupied;
+				data = other.data;
+				other.data = nullptr;
+			}
+			return *this;
+		}
 	};
 	std::vector< Bucket > table;
 	size_t size_ = 0;
@@ -32,10 +60,9 @@ struct HashMap
 	Hash hasher;
 	KeyEqual key_equal;
 	static constexpr double LOAD_FACTOR = 0.7;
-	class iterator
+	struct iterator
 	{
 		using Outer = HashMap< K, V, Hash, KeyEqual >;
-	private:
 		Outer *map;
 		size_t index;
 		void skip_empty()
@@ -44,7 +71,6 @@ struct HashMap
 			        !map->table[index].occupied )
 				++index;
 		}
-	public:
 		using iterator_category = std::forward_iterator_tag;
 		using value_type = std::pair< const K &, V & >;
 		using difference_type = std::ptrdiff_t;
@@ -117,9 +143,8 @@ struct HashMap
 	void rehash()
 	{
 		std::vector< Bucket > old_table = std::move( table );
-
 		table.clear();
-		table.resize( old_table.size() * 2 );
+		table.resize( old_table.size() << 1 );
 
 		size_ = 0;
 
@@ -133,7 +158,7 @@ struct HashMap
 
 	iterator find( const K &key ) const
 	{
-		if ( table.empty() )
+		if ( size_ == 0)
 			return end();
 
 		size_t hash = hasher( key );

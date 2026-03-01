@@ -123,7 +123,6 @@ struct SingleCharSpliter
 	template < typename C >
 	bool step( TXT< C > *txt, size_t &start, size_t &end, std::basic_string< C > &str )
 	{
-		str.clear();
 		while ( txt->readNext() )
 		{
 			std::string utf8_char;
@@ -149,6 +148,7 @@ struct SingleCharSpliter
 					break;
 			}
 			end = txt->position;
+			str = utf8_char;
 			return true;
 		}
 		return false;

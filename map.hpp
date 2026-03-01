@@ -32,13 +32,13 @@ struct Simple_Hasher
 };
 
 
-// template <
-//     typename K,
-//     typename V,
-//     typename Hash = Simple_Hasher,
-//     typename KeyEqual = std::equal_to< K > >
-// struct HashMap;
-// #include "hash_map.tpp"
-#include <unordered_map>
-template < typename K, typename V >
-using HashMap = std::unordered_map< K, V >;
+template <
+    typename K,
+    typename V,
+    typename Hash = Simple_Hasher,
+    typename KeyEqual = std::equal_to< K > >
+struct HashMap;
+#include "hash_map.tpp"
+// #include <unordered_map>
+// template < typename K, typename V >
+// using HashMap = std::unordered_map< K, V >;

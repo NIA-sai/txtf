@@ -192,7 +192,7 @@ namespace front_end
 
 			if ( clicked )
 			{
-				ShellExecuteW( nullptr, L"open",
+				ShellExecuteA( nullptr, "open",
 				               doc.filePath.c_str(),
 				               nullptr, nullptr, SW_SHOW );
 			}
@@ -423,27 +423,27 @@ namespace front_end
 		if ( docIndex >= s.docs.size() ) return "";
 		if ( start >= end ) return "";
 		auto &doc = s.docs[docIndex];
-		size_t startByte = start >= ( 4 + len << 2 ) ? start - ( 4 + len << 2 ) : 0;
+		size_t startByte = start >= ( 4 + ( len << 2 ) ) ? start - ( 4 + ( len << 2 ) ) : 0;
 		size_t endByte;
 		std::string content;
 		if ( doc.isFile )
 		{
-			std::string path = WtoU8( doc.filePath );
-			std::ifstream ifs( path, std::ios::binary );
+			std::ifstream ifs( doc.filePath, std::ios::binary );
 			if ( !ifs.is_open() )
 			{
 				newStart = 0;
-				newEnd = 0;
+				newEnd = 21;
 				return "[无法读取文件]";
 			}
 			ifs.seekg( 0, std::ios::end );
 			size_t fileLen = ifs.tellg();
-			endByte = end + ( 4 + len << 2 );
+			endByte = end + ( 4 + ( len << 2 ) );
 			if ( end > fileLen ) end = fileLen;
 			if ( endByte > fileLen ) endByte = fileLen;
 			ifs.seekg( startByte );
 			content.resize( endByte - startByte );
 			ifs.read( &content[0], endByte - startByte );
+			ifs.close();
 		}
 		else
 		{
@@ -1594,7 +1594,7 @@ namespace front_end
 				ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.74f, 0.82f, 0.96f, 1.0f ) );
 				ImGui::PushStyleColor( ImGuiCol_Text, palette::Primary );
 
-				if ( ImGui::Button( "浏览文件...", ImVec2( bw3, 0 ) ) )
+				if ( ImGui::Button( "浏览文件", ImVec2( bw3, 0 ) ) )
 				{
 					auto paths = OpenFileDialog( nullptr );
 					for ( auto &wp : paths )
@@ -1617,7 +1617,7 @@ namespace front_end
 				}
 
 				ImGui::SameLine();
-				if ( ImGui::Button( "浏览文件夹...", ImVec2( bw3, 0 ) ) )
+				if ( ImGui::Button( "浏览文件夹", ImVec2( bw3, 0 ) ) )
 				{
 					std::wstring folder = OpenFolderDialog( nullptr );
 					if ( !folder.empty() )
@@ -1677,12 +1677,11 @@ namespace front_end
 						line.pop_back();
 					if ( line.empty() ) continue;
 
-					std::wstring wpath = U8toW( line );
-					s.finder->add( wpath );
+					s.finder->add( line );
 
 					DocEntry de;
 					de.displayName = line;
-					de.filePath = wpath;
+					de.filePath = line;
 					de.isFile = true;
 					de.selected = true;
 					s.docs.push_back( std::move( de ) );
@@ -1859,7 +1858,7 @@ namespace front_end
 		ImGui::CreateContext();
 		ImGuiIO &io = ImGui::GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-		io.ConfigDebugHighlightIdConflicts = false;
+		// io.ConfigDebugHighlightIdConflicts = false;
 		io.IniFilename = "txtf.config";
 		ImFont *font28 = io.Fonts->AddFontFromFileTTF(
 		    "C:/Windows/Fonts/msyh.ttc",
@@ -1949,14 +1948,12 @@ namespace front_end
 				}
 				if ( ImGui::BeginMenu( "页面" ) )
 				{
-					ImGui::BeginDisabled( state.indexStatus == AppState::IndexStatus::NotBuilt || state.indexStatus == AppState::IndexStatus::Building );
 					if ( ImGui::MenuItem( "索引演示", "需先直接创建索引" ) && !state.showIndexDemoPage )
 					{
 						state.showIndexDemoPage = true;
-						state.finder->step_restart();
-						// state.demoIndexSteps.clear();
+						if ( state.indexStatus == AppState::IndexStatus::Built )
+							state.finder->step_restart();
 					}
-					ImGui::EndDisabled();
 
 					if ( ImGui::MenuItem( "合并演示" ) && !state.showMergeDemoPage )
 					{

@@ -33,7 +33,7 @@ struct TXT
 		return 0;
 	}
 	virtual void restart() = 0;
-	virtual std::wstring getFileName() const = 0;
+	virtual std::string getFileName() const = 0;
 	virtual bool isRightOpened() const = 0;
 	virtual bool readNext() = 0;
 	virtual C currentChar() const = 0;
@@ -62,9 +62,9 @@ struct TXT_File : TXT< C >
 		return true;
 	}
 	C currentChar() const { return current; }
-	std::wstring getFileName() const
+	std::string getFileName() const
 	{
-		return filename.wstring();
+		return filename.string();
 	}
 	void restart()
 	{
@@ -153,5 +153,5 @@ struct TXT_String : TXT< C >
 		TXT< C >::position = 0;
 		TXT< C >::last_position = -1;
 	}
-	std::wstring getFileName() const { return L"temp string"; }
+	std::string getFileName() const { return "temp string"; }
 };

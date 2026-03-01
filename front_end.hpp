@@ -1,5 +1,6 @@
 #pragma once
 #include "spliter.hpp"
+#include "static_queue.hpp"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <atomic>
@@ -13,7 +14,6 @@
 #include <string>
 #include <vector>
 #include <windows.h>
-
 #ifdef _WIN32
 	#ifndef NOMINMAX
 		#define NOMINMAX
@@ -73,7 +73,7 @@ namespace front_end
 	struct DocEntry
 	{
 		std::string displayName;
-		std::wstring filePath;
+		std::string filePath;
 		std::string rawText;
 		bool isFile = true;
 		bool selected = true;
@@ -116,13 +116,9 @@ namespace front_end
 		struct DemoIndexStep
 		{
 			size_t docIndex = 0;
-			std::string docName;
-			std::string token;
 			size_t start = 0;
 			size_t end = 0;
-			const char *context;
-			size_t contextStart = 0;
-			size_t contextEnd = 0;
+			std::string word;
 		};
 
 		struct DemoMergePointerStep
@@ -214,13 +210,24 @@ namespace front_end
 		char indexFilter[128] = "";
 		bool showIndexDemoPage = false;
 		bool showMergeDemoPage = false;
-
-		bool demoIndexAuto = false;
-		int demoIndexDelayMs = 600;
-		double demoIndexLastStepAt = 0.0;
-		DemoIndexStep demoIndexStep;
-		size_t demoIndexCursor = 0;
-
+		struct DemoIndex
+		{
+			bool isAuto = false;
+			int delayMs = 600;
+			double lastStepAt = 0.0;
+			DemoIndexStep step;
+			size_t current = 0;
+			HashMap< std::string, StaticQueue< size_t, 5 * 3 > > index;
+			HashMap< std::string, StaticQueue< size_t, 5 * 3 > >::iterator currentIt = index.begin();
+			void clear()
+			{
+				isAuto = false;
+				index.clear();
+				current = 0;
+				currentIt = index.begin();
+			}
+		};
+		DemoIndex demoIndex;
 		float demoWheelScale = 1.0f;
 		ImVec2 demoWheelPan = ImVec2( 0.0f, 0.0f );
 		float demoWheelRotation = 0.0f;

@@ -2,7 +2,7 @@
 
 #include <string>
 #include <vector>
-inline bool end_with_in( const std::wstring_view &str, const std::vector< std::wstring > &sufixes )
+inline bool end_with_in( const std::string_view &str, const std::vector< std::string > &sufixes )
 {
 	// todo
 	return true;

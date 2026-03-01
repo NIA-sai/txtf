@@ -36,6 +36,7 @@
 
 int main( int argc, char *argv[] )
 {
+
 	SetConsoleOutputCP( CP_UTF8 );
 	SetConsoleCP( CP_UTF8 );
 
@@ -49,4 +50,5 @@ int main( int argc, char *argv[] )
 /*
 g++ -std=c++20 -g  main.cpp  front_end.cpp  -I "D:/Code/Cpp/imgui-1.92.6" -I "D:/Code/Cpp/imgui-1.92.6/backends" -L "D:/Code/Cpp/imgui-1.92.6/build" -I "D:/Code/Cpp/GLFW/glfw-3.4.bin.WIN64/include" -L "D:/Code/Cpp/GLFW/glfw-3.4.bin.WIN64/lib-mingw-w64" -lglfw3 -lopengl32 -limgui -lgdi32 -luser32 -lshell32 -lcomdlg32 -lole32 -luuid  -o ./output/demo.exe
 g++ -std=c++20 -O2 -flto main.cpp  front_end.cpp  -I "D:/Code/Cpp/imgui-1.92.6" -I "D:/Code/Cpp/imgui-1.92.6/backends" -L "D:/Code/Cpp/imgui-1.92.6/build" -I "D:/Code/Cpp/GLFW/glfw-3.4.bin.WIN64/include" -L "D:/Code/Cpp/GLFW/glfw-3.4.bin.WIN64/lib-mingw-w64" -lglfw3 -lopengl32 -limgui -lgdi32 -luser32 -lshell32 -lcomdlg32 -lole32 -luuid "-Wl,--subsystem,windows" app.res -o ./output/txtf.exe
+g++ -std=c++20 -g -fsanitize=address main.cpp  front_end.cpp front_end_demo.cpp -I "D:/Code/Cpp/imgui-1.92.6" -I "D:/Code/Cpp/imgui-1.92.6/backends" -L "D:/Code/Cpp/imgui-1.92.6/build" -I "D:/Code/Cpp/GLFW/glfw-3.4.bin.WIN64/include" -L "D:/Code/Cpp/GLFW/glfw-3.4.bin.WIN64/lib-mingw-w64" -lglfw3 -lopengl32 -limgui -lgdi32 -luser32 -lshell32 -lcomdlg32 -lole32 -luuid  app.res -o ./output/txtf4.exe
 */

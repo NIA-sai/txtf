@@ -6,6 +6,7 @@
 #include <atomic>
 #include <filesystem>
 #include <memory>
+#include <utility>
 #include <vector>
 #define Finder_Add_File                                                                     \
 	if ( fs::exists( filename ) )                                                           \
@@ -13,7 +14,7 @@
 			txts.emplace_back( std::make_unique< TXT_File< C > >( filename ) );             \
 		else if ( fs::is_directory( filename ) )                                            \
 			for ( const auto &entry : fs::directory_iterator( filename ) )                  \
-				if ( entry.is_regular_file() && end_with_in( entry.path().string< wchar_t >(), Allow_Extensions ) ) txts.emplace_back( std::make_unique< TXT_File< C > >( entry.path().string< wchar_t >() ) );
+				if ( entry.is_regular_file() && end_with_in( entry.path().string< char >(), Allow_Extensions ) ) txts.emplace_back( std::make_unique< TXT_File< C > >( entry.path().string< wchar_t >() ) );
 
 
 template < typename T >
@@ -32,14 +33,14 @@ struct Finder
 	using ptr = std::unique_ptr< T >;
 	template < typename T >
 	using vector = std::vector< T >;
-	using filename_t = std::wstring;
+	using filename_t = std::string;
 	using string_view = std::basic_string_view< C >;
 	using string = std::basic_string< C >;
 	using map =
 	    // std::unordered_map<
 	    HashMap< std::basic_string< C >, vector< vector< size_t > > >;
 	// todo
-	inline static vector< filename_t > Allow_Extensions = { L".txt", L".cpp", L".h", L".md" };
+	inline static vector< filename_t > Allow_Extensions = { ".txt", ".cpp", ".h", ".md" };
 	// size_t count = 0;
 	size_t first_unindexed = 0, posCnt = 0;
 	size_t first_un_step_indexed = 0;
@@ -94,7 +95,7 @@ struct Finder
 	{
 		for ( ; first_unindexed < txts.size(); ++first_unindexed )
 		{
-			posCnt += txts[first_unindexed]->create_index( index, txts.size(), index_creator, first_unindexed, std::forward( s ) );
+			posCnt += txts[first_unindexed]->create_index( index, txts.size(), index_creator, first_unindexed, std::forward< S >( s ) );
 		}
 	}
 
@@ -107,7 +108,7 @@ struct Finder
 			if ( txts[first_unindexed]->isSelected() )
 			{
 				current = first_unindexed;
-				posCnt += txts[first_unindexed]->create_index( index, txts.size(), index_creator, first_unindexed, std::forward( s ) );
+				posCnt += txts[first_unindexed]->create_index( index, txts.size(), index_creator, first_unindexed, std::forward< S >( s ) );
 				++doneCount;
 			}
 		}
@@ -130,14 +131,16 @@ struct Finder
 	template < typename S = SimpleSpliter >
 	bool step_next( S &&s, size_t &start, size_t &end, size_t &txtId, std::basic_string< C > &str )
 	{
-		while ( !txts[first_un_step_indexed]->isSelected() && first_un_step_indexed < txts.size() )
+		while ( first_un_step_indexed < txts.size() && !txts[first_un_step_indexed]->isSelected() )
 			++first_un_step_indexed;
 		if ( first_un_step_indexed >= txts.size() ) return false;
 		if ( s.step( txts[first_un_step_indexed].get(), start, end, str ) )
+		{
+			txtId = first_un_step_indexed;
 			return true;
+		}
 		++first_un_step_indexed;
-		step_pos = 0;
-		return step_next( std::forward( s ), start, end, txtId, str );
+		return step_next( std::forward< S >( s ), start, end, txtId, str );
 	}
 
 	struct Result
