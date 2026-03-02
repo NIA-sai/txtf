@@ -905,7 +905,7 @@ namespace front_end
 		}
 
 		auto &arr = accumulated.array();
-		std::cout << arr;
+		// std::cout << arr;
 		for ( auto &v : arr )
 		{
 			if ( v.empty() ) continue;

@@ -443,6 +443,7 @@ namespace front_end
 			ifs.seekg( startByte );
 			content.resize( endByte - startByte );
 			ifs.read( &content[0], endByte - startByte );
+			ifs.close();
 		}
 		else
 		{
@@ -905,7 +906,7 @@ namespace front_end
 		}
 
 		auto &arr = accumulated.array();
-		std::cout << arr;
+		// std::cout << arr;
 		for ( auto &v : arr )
 		{
 			if ( v.empty() ) continue;
@@ -1843,7 +1844,7 @@ namespace front_end
 
 		HICON hIcon = (HICON)LoadImage(
 		    GetModuleHandle( NULL ),
-		    MAKEINTRESOURCE( 2 ),
+		    MAKEINTRESOURCE( 1 ),
 		    IMAGE_ICON,
 		    0, 0,
 		    LR_DEFAULTSIZE );

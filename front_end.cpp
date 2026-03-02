@@ -605,10 +605,10 @@ namespace front_end
 			switch ( s.indexStatus )
 			{
 			case AppState::IndexStatus::Built :
-				label = "[ok] 索引已建立";
+				label = "[OK] 索引已建立";
 				break;
 			case AppState::IndexStatus::Building :
-				label = "[wait] 正在创建索引...";
+				label = "[WAIT] 正在创建索引...";
 				break;
 			default :
 				label = ">> 创建索引";
@@ -845,13 +845,13 @@ namespace front_end
 		if ( s.queryTerms.empty() || std::strlen( s.queryTerms[0].word ) == 0 ) return;
 
 		s.results.clear();
-		// for ( size_t i = 0; i < s.docs.size(); ++i )
-		// {
-		// 	if ( s.docs[i].selected )
-		// 		s.finder->select( i );
-		// 	else
-		// 		s.finder->deselect( i );
-		// }
+		for ( size_t i = 0; i < s.docs.size(); ++i )
+		{
+			if ( s.docs[i].selected )
+				s.finder->select( i );
+			else
+				s.finder->deselect( i );
+		}
 		std::string qDesc;
 		std::string modeStr;
 
@@ -901,6 +901,7 @@ namespace front_end
 		for ( size_t i = 1; i < terms.size(); ++i )
 		{
 			auto ri = s.finder->find( terms[i].word );
+			std::cout << ri << std::endl;
 			if ( terms[i - 1].op == 0 )
 				accumulated = accumulated && ri;
 			else
@@ -908,7 +909,7 @@ namespace front_end
 		}
 
 		auto &arr = accumulated.array();
-		std::cout << arr;
+		std::cout << arr << std::endl;
 		for ( auto &v : arr )
 		{
 			if ( v.empty() ) continue;
@@ -1807,6 +1808,10 @@ namespace front_end
 			                    "分词方式: 单字分词, 简单英文单词分词" );
 
 			ImGui::Spacing();
+			ImGui::TextWrapped( "btw 实际上也有简单的cli, -h 帮助" );
+
+			ImGui::Spacing();
+			ImGui::Spacing();
 			float bw = 120;
 			ImGui::SetCursorPosX( ( ImGui::GetContentRegionAvail().x - bw ) * 0.5f + ImGui::GetCursorPosX() );
 			ImGui::PushStyleColor( ImGuiCol_Text, palette::TextWhite );
@@ -1845,7 +1850,7 @@ namespace front_end
 
 		HICON hIcon = (HICON)LoadImage(
 		    GetModuleHandle( NULL ),
-		    MAKEINTRESOURCE( 2 ),
+		    MAKEINTRESOURCE( 1 ),
 		    IMAGE_ICON,
 		    0, 0,
 		    LR_DEFAULTSIZE );

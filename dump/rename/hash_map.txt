@@ -7,7 +7,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-// 131hash
 struct Simple_Hasher
 {
 	template < typename C >
@@ -15,22 +14,10 @@ struct Simple_Hasher
 	{
 		size_t hash = 0;
 		for ( char c : s )
-			hash = ( hash << 7 ) + ( hash << 1 ) + hash + c;
+			hash = hash * 131 + c;
 		return hash;
 	}
 };
-struct Bin_Up_Hasher
-{
-	template < typename C >
-	size_t operator()( const std::basic_string< C > &s ) const
-	{
-		size_t hash = 0;
-		for ( char c : s )
-			hash ^= c << ( hash & 0x3f );
-		return hash;
-	}
-};
-
 template <
     typename K,
     typename V,
@@ -95,30 +82,6 @@ struct HashMap
 			        !map->table[index].occupied )
 				++index;
 		}
-		void skip_empty_r()
-		{
-			while ( index < map->table.size() &&
-			        !map->table[index].occupied )
-				++index;
-			if ( index == map->table.size() )
-			{
-				index = 0;
-				while ( !map->table[index].occupied )
-					++index;
-			}
-		}
-		void skip_empty_r_back()
-		{
-			while ( index > 0 &&
-			        !map->table[index].occupied )
-				--index;
-			if ( index == 0 && !map->table[index].occupied )
-			{
-				index = map->table.size() - 1;
-				while ( !map->table[index].occupied )
-					--index;
-			}
-		}
 		using iterator_category = std::forward_iterator_tag;
 		using value_type = std::pair< const K &, V & >;
 		using difference_type = std::ptrdiff_t;
@@ -131,42 +94,15 @@ struct HashMap
 				skip_empty();
 			}
 		}
-		iterator( Outer *m, size_t i, bool ) : map( m ), index( i ) {}
+
 		iterator &operator++()
 		{
 			++index;
 			skip_empty();
+
 			return *this;
 		}
 
-		void to_next()
-		{
-			++index;
-			skip_empty_r();
-		}
-
-
-		void to_prev()
-		{
-			if ( index )
-				--index;
-			else
-				index = map->table.size() - 1;
-			skip_empty_r_back();
-		}
-		// iterator operator + ( size_t i ) const
-		iterator next() const
-		{
-			iterator n( this->map, this->index + 1, true );
-			n.skip_empty_r();
-			return n;
-		}
-		iterator prev() const
-		{
-			iterator n( this->map, this->index ? this->index - 1 : this->map->table.size() - 1, true );
-			n.skip_empty_r_back();
-			return n;
-		}
 		bool operator==( const iterator &other ) const
 		{
 			return map == other.map && index == other.index;
@@ -230,30 +166,27 @@ struct HashMap
 		}
 	}
 
-	size_t hash( const K &key ) const
-	{
-		return hasher( key );
-	}
 
 	iterator find( const K &key ) const
 	{
-		if ( size_ > 0 )
+		if ( size_ == 0 )
+			return end();
+
+		size_t hash = hasher( key );
+		size_t mask = table.size() - 1;
+
+		for ( size_t i = 0; i < table.size(); ++i )
 		{
-			size_t hash = hasher( key );
-			size_t mask = table.size() - 1;
+			size_t idx = probe_index( hash, i );
+			auto &b = table[idx];
 
-			for ( size_t i = 0; i < table.size(); ++i )
-			{
-				size_t idx = probe_index( hash, i );
-				auto &b = table[idx];
+			if ( !b.occupied )
+				return end();
 
-				if ( !b.occupied )
-					return end();
-
-				if ( b.hash == hash && key_equal( b.data->first, key ) )
-					return iterator( (HashMap *)this, idx );
-			}
+			if ( b.hash == hash && key_equal( b.data->first, key ) )
+				return iterator( (HashMap *)this, idx );
 		}
+
 		return end();
 	}
 

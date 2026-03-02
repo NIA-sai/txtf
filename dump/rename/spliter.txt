@@ -43,7 +43,7 @@ struct SimpleSpliter
 		return pos;
 	}
 	template < typename C >
-	bool step( TXT< C > *txt, size_t &start, size_t &end, std::basic_string< C > &str)
+	bool step( TXT< C > *txt, size_t &start, size_t &end, std::basic_string< C > &str )
 	{
 		str.clear();
 		bool unStart = true;

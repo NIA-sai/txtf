@@ -204,9 +204,9 @@ struct Finder
 				if ( a == b )
 				{
 					andr.emplace_back( vector< size_t >{ a } );
-					auto &v = andr.back();
-					v.reserve( results->at( i ).size() + other.results->at( j ).size() - 1 );
+					andr.back().reserve( results->at( i ).size() + other.results->at( j ).size() - 1 );
 					size_t k = 1, l = 1, resti;
+					auto &v = andr.back();
 					while ( k < results->at( i ).size() && l < other.results->at( j ).size() )
 					{
 						if ( results->at( i ).at( k ) == other.results->at( j ).at( l ) )
@@ -242,10 +242,6 @@ struct Finder
 				else
 					++j;
 			}
-
-			size_t resti = i < results->size() ? i : j;
-			const vector< vector< size_t > > *rest = i < results->size() ? results : other.results;
-			andr.insert( andr.end(), rest->begin() + resti, rest->end() );
 			return Result{ andr_p, true };
 		}
 		Result operator||( const Result &other ) const

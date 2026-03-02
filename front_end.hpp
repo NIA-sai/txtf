@@ -1,6 +1,6 @@
 #pragma once
 #include "spliter.hpp"
-#include "static_queue.hpp"
+#include "static_queue.tpp"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <atomic>
@@ -118,6 +118,7 @@ namespace front_end
 			size_t docIndex = 0;
 			size_t start = 0;
 			size_t end = 0;
+			size_t hash = 0;
 			std::string word;
 		};
 
@@ -127,10 +128,7 @@ namespace front_end
 			size_t j = 0;
 			int leftDoc = -1;
 			int rightDoc = -1;
-			int k = -1;
-			int l = -1;
-			size_t leftPos = 0;
-			size_t rightPos = 0;
+
 			std::string action;
 			int addFrom = 0;  // 0:none 1:left 2:right 3:both
 		};
@@ -217,8 +215,8 @@ namespace front_end
 			double lastStepAt = 0.0;
 			DemoIndexStep step;
 			size_t current = 0;
-			HashMap< std::string, StaticQueue< size_t, 5 * 3 > > index;
-			HashMap< std::string, StaticQueue< size_t, 5 * 3 > >::iterator currentIt = index.begin();
+			HashMap< std::string, StaticQueue< size_t, 6 * 3 > > index;
+			HashMap< std::string, StaticQueue< size_t, 6 * 3 > >::iterator currentIt = index.begin();
 			void clear()
 			{
 				isAuto = false;
@@ -252,6 +250,8 @@ namespace front_end
 		ImVec2 demoFlyFrom = ImVec2( 0, 0 );
 		ImVec2 demoFlyTo = ImVec2( 0, 0 );
 		int demoFlyDoc = -1;
+		int demoFlyAddFrom = 0;
+		int demoFlyOutIndex = 0;
 	};
 
 
