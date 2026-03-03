@@ -901,15 +901,15 @@ namespace front_end
 		for ( size_t i = 1; i < terms.size(); ++i )
 		{
 			auto ri = s.finder->find( terms[i].word );
-			std::cout << ri << std::endl;
+			// std::cout << ri << std::endl;
 			if ( terms[i - 1].op == 0 )
 				accumulated = accumulated && ri;
 			else
 				accumulated = accumulated || ri;
 		}
 
-		auto &arr = accumulated.array();
-		std::cout << arr << std::endl;
+		auto &arr = accumulated.array_fmt();
+		// std::cout << arr << std::endl;
 		for ( auto &v : arr )
 		{
 			if ( v.empty() ) continue;
@@ -1045,7 +1045,7 @@ namespace front_end
 
 					// ImGui::Spacing();
 					// ImGui::SameLine();
-					// ImGui::SetCursorPosY( ImGui::GetCursorPosY() - offsetY );
+					ImGui::SetCursorPosY( ImGui::GetCursorPosY() - offsetY );
 
 					ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.90f, 0.92f, 0.95f, 1.0f ) );
 					ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.82f, 0.86f, 0.92f, 1.0f ) );
@@ -1214,7 +1214,7 @@ namespace front_end
 				ImGui::TableSetColumnIndex( 2 );
 				size_t totalPos = 0;
 				for ( auto &e : entries )
-					totalPos += ( e.size() >> 1 );
+					totalPos += ( e.size() - 1 );
 				ImGui::Text( "%zu", totalPos );
 
 
@@ -1224,7 +1224,7 @@ namespace front_end
 				{
 					auto &e = entries[ei];
 					if ( e.empty() ) continue;
-					if ( ei > 0 ) oss << " | ";
+					if ( ei > 0 ) oss << ";";
 
 
 					size_t docId = static_cast< size_t >( e[0] );
@@ -1233,8 +1233,8 @@ namespace front_end
 					for ( size_t pi = 1; pi < e.size(); ++pi )
 					{
 						if ( pi > 1 ) oss << ",";
-						oss << "(" << e[pi] << "," << e[++pi] << ")";
-						if ( pi > 7 && pi < e.size() - 1 )
+						oss << e[pi];
+						if ( pi > 14 && pi < e.size() - 1 )
 						{
 							oss << "...(+" << e.size() - 1 - pi << ")";
 							break;

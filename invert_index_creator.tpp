@@ -19,7 +19,8 @@ struct SimpleInvertIndexCreatorWithPos
 		mmap m1 = s( txt_index, txt );
 		for ( auto &[k, v] : m1 )
 		{
-			cnt += v.size() >> 1;
+			cnt += v.size()// >> 1
+			;
 			auto it = m.find( k );
 			if ( it == m.end() )
 			{

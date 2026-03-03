@@ -42,7 +42,11 @@ namespace front_end
 			q.push( s.demoIndex.step.docIndex );
 			q.push( s.demoIndex.step.start );
 			q.push( s.demoIndex.step.end );
-			s.demoIndex.currentIt = s.demoIndex.index.find( s.demoIndex.step.word );
+			s.demoIndex.goalIt = s.demoIndex.index.find( s.demoIndex.step.word );
+			s.demoIndex.currentIt = s.demoIndex.index.hash_to_idx( s.demoIndex.step.hash );
+			s.demoIndex.isRotating = s.demoIndex.step.hash & 1 ? -1 : 1;
+			s.demoIndex.idx = s.demoIndex.step.hash & ( s.demoIndex.index.data.size() - 1 );
+
 			s.demoWheelRotation = 0.0f;
 			++s.demoIndex.current;
 		}
@@ -150,6 +154,7 @@ namespace front_end
 
 	void ResetMergeDemo( AppState &s )
 	{
+		s.demoMergeAuto = false;
 		s.demoMergeSteps.clear();
 		s.demoMergeCursor = 0;
 		s.demoMergeLastStepAt = ImGui::GetTime();
@@ -188,13 +193,13 @@ namespace front_end
 			if ( std::strlen( qt.word ) > 0 ) terms.push_back( { std::string( qt.word ), qt.op } );
 		if ( terms.empty() ) return;
 
-		auto acc = s.finder->find( terms[0].word ).array();
+		auto acc = s.finder->find( terms[0].word ).array_fmt();
 		s.demoCurrentDocs = acc.size();
 		s.demoExpr = terms[0].word;
 
 		for ( size_t i = 1; i < terms.size(); ++i )
 		{
-			auto rhsResult = s.finder->find( terms[i].word ).array();
+			auto rhsResult = s.finder->find( terms[i].word ).array_fmt();
 			std::string op = terms[i - 1].op == 0 ? "AND" : "OR";
 			auto step = BuildMergeStepTrace( acc, rhsResult, s.demoExpr, terms[i].word, op );
 			acc = step.outRows;
@@ -346,7 +351,13 @@ namespace front_end
 		int showN = n > maxShow ? maxShow : n;
 		bool folded = n > maxShow;
 		float oneAngel = ( ( 2.0f ) / static_cast< float >( showN ) ) * IM_PI;
-
+		if ( s.demoIndex.isRotating )
+		{
+			if ( s.demoIndex.currentIt == s.demoIndex.goalIt )
+				s.demoIndex.isRotating = 0;
+			else
+				s.demoWheelRotation += s.demoIndex.isRotating * ( oneAngel * 0.08f );
+		}
 		while ( s.demoWheelRotation > oneAngel )
 		{
 			s.demoWheelRotation -= oneAngel, s.demoIndex.currentIt.to_prev();
@@ -361,7 +372,8 @@ namespace front_end
 		auto it = s.demoIndex.currentIt;
 		auto rit = s.demoIndex.currentIt.next();
 
-		auto &e = s.demoWheelRotation > oneAngel * 0.5f ? *it.prev() : ( s.demoWheelRotation < -oneAngel * 0.5f ? *( rit ) : *it );
+		const auto &showi = s.demoWheelRotation > oneAngel * 0.5f ? it.prev() : ( ( s.demoWheelRotation < -oneAngel * 0.5f ) ? rit : it );
+		auto &e = *showi;
 		auto &q = e.second;
 
 		int r = showN / 2;
@@ -444,8 +456,9 @@ namespace front_end
 		std::string label;
 		label.reserve( 100 );
 
-
-		label.append( "key : \"" + e.first + "\"\npos:[" );
+		label.append( "index : \"" );
+		label.append( std::to_string( showi.index ) );
+		label.append( "\nkey : \"" + e.first + "\"\npos:\n" );
 		if ( q.full() )
 		{
 			label.append( "..." );
@@ -465,7 +478,6 @@ namespace front_end
 				label.append( buf );
 			}
 		}
-		label.append( "]" );
 		ShowTextInCenter( dl, center, label.c_str(), s.demoWheelScale );
 
 		// if ( infoSeg >= 0 )
@@ -516,7 +528,7 @@ namespace front_end
 		ImGui::EndDisabled();
 
 		ImGui::SameLine();
-		ImGui::BeginDisabled( !s.demoIndex.isAuto && s.indexStatus != AppState::IndexStatus::Built && s.demoIndex.current >= total );
+		ImGui::BeginDisabled( ( !s.demoIndex.isAuto && s.indexStatus != AppState::IndexStatus::Built ) || s.demoIndex.current >= total );
 		if ( ImGui::Button( s.demoIndex.isAuto ? "停止" : "自动", ImVec2( 100, 0 ) ) )
 		{
 			s.demoIndex.isAuto = !s.demoIndex.isAuto;
@@ -529,12 +541,14 @@ namespace front_end
 		ImGui::SetNextItemWidth( 160 );
 		ImGui::SliderInt( "间隔(ms)", &s.demoIndex.delayMs, 50, 2500 );
 		ImGui::SameLine();
+		ImGui::BeginDisabled( s.indexStatus != AppState::IndexStatus::Built );
 		if ( ImGui::Button( "重置", ImVec2( 80, 0 ) ) )
 		{
 			s.demoIndex.clear();
 			s.finder->step_restart();
 			s.indexStatus = AppState::IndexStatus::Built;
 		}
+		ImGui::EndDisabled();
 		if ( s.demoIndex.isAuto && s.demoIndex.current < total )
 		{
 			if ( s.demoIndex.current == 0 )
@@ -552,7 +566,7 @@ namespace front_end
 		{
 			auto &step = s.demoIndex.step;
 			ImGui::Text( "文档[%zu]: %s", step.docIndex, s.docs[step.docIndex].displayName.c_str() );
-			ImGui::Text( "位置: [%zu, %zu) 词: %s -> hash: %zu", step.start, step.end, step.word.c_str(), step.hash );
+			ImGui::Text( "位置: [%zu, %zu) 词: %s -> hash: %zu -> 初探index: %zu ( %s )", step.start, step.end, step.word.c_str(), step.hash, s.demoIndex.idx, s.demoIndex.idx & 1 ? "奇" : "偶" );
 
 			ImGui::Text( "", step.word.c_str() );
 

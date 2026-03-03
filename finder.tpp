@@ -147,9 +147,10 @@ struct Finder
 	{
 		const vector< vector< size_t > > *results;
 		bool hold;
-		Result() : hold( true ), results( new vector< vector< size_t > >() ) {};
-		Result( const vector< vector< size_t > > *r, bool hold = true ) : hold( hold ), results( r ) {}
-		Result( const vector< vector< size_t > > &r, const vector< ptr< TXT< C > > > *txts ) : hold( txts != nullptr )
+		size_t len_;  // 0 means 复合
+		Result() : hold( true ), results( new vector< vector< size_t > >() ), len_( 0 ) {};
+		Result( const vector< vector< size_t > > *r, size_t len, bool hold = true ) : hold( hold ), results( r ), len_( len ) {};
+		Result( const vector< vector< size_t > > &r, size_t len, const vector< ptr< TXT< C > > > *txts ) : hold( txts != nullptr ), len_( len )
 		{
 			if ( hold )
 			{
@@ -163,16 +164,39 @@ struct Finder
 			else
 				results = &r;
 		}
+
+		size_t posCnt() const
+		{
+			if ( len_ )
+				return ( results->size() << 1 ) - 2;
+			return results->size() - 1;
+		}
+
+		size_t start( size_t i, size_t j ) const
+		{
+			if ( len_ )
+				return results->at( i ).at( j + 1 ) - len_;
+			return results->at( i ).at( ( j << 1 ) + 1 );
+		}
+		size_t end( size_t i, size_t j ) const
+		{
+			if ( len_ )
+				return results->at( i ).at( j + 1 );
+			return results->at( i ).at( ( j << 1 ) + 2 );
+		}
 		~Result()
 		{
 			if ( hold ) delete results;
 		}
-		Result( const Result & ) = delete;
+		Result( const Result &r ) : hold( r.hold ), len_( r.len_ ), results( r.hold ? new vector< vector< size_t > >( *r.results ) : r.results )
+		{
+		}
 		Result &operator=( const Result &r )
 		{
 			if ( hold )
 				delete results;
 			hold = r.hold;
+			len_ = r.len_;
 			results = r.results;
 			if ( hold )
 				results = new vector< vector< size_t > >( *results );
@@ -180,58 +204,75 @@ struct Finder
 		};
 		Result &operator=( Result &&r )
 		{
-			if ( hold )
-				delete results;
-			hold = r.hold;
-			results = r.results;
-			r.hold = false;
-			r.results = nullptr;
+			if ( this != &r )
+			{
+				if ( hold )
+					delete results;
+				hold = r.hold;
+				len_ = r.len_;
+				results = r.results;
+				r.hold = false;
+				r.results = nullptr;
+			}
 			return *this;
 		}
-		Result( Result && ) = default;
+		Result( Result &&r ) : hold( r.hold ), len_( r.len_ ), results( r.results )
+		{
+			r.hold = false;
+		}
 		Result operator&&( const Result &other ) const
 		{
 			if ( results->empty() || other.results->empty() )
 				return Result{};
-			size_t i = 0, j = 0, a, b;
 			vector< vector< size_t > > *andr_p = new vector< vector< size_t > >();
 			vector< vector< size_t > > &andr = *andr_p;
-			andr.reserve( results->size() <= other.results->size() ? results->size() : other.results->size() );
-			while ( i < results->size() && j < other.results->size() )
+			Result t = fmt();
+			Result o = other.fmt();
+			const vector< vector< size_t > > *results = t.results;
+			andr.reserve( results->size() <= o.results->size() ? results->size() : o.results->size() );
+			size_t i = 0, j = 0, a, b;
+			while ( i < results->size() && j < o.results->size() )
 			{
 				a = results->at( i ).at( 0 );
-				b = other.results->at( j ).at( 0 );
+				b = o.results->at( j ).at( 0 );
 				if ( a == b )
 				{
 					andr.emplace_back( vector< size_t >{ a } );
 					auto &v = andr.back();
-					v.reserve( results->at( i ).size() + other.results->at( j ).size() - 1 );
-					size_t k = 1, l = 1, resti;
-					while ( k < results->at( i ).size() && l < other.results->at( j ).size() )
+					v.reserve( results->at( i ).size() + o.results->at( j ).size() - 1 );
+					size_t k = 1, l = 1, c, d, e, f, resti;
+					while ( k < results->at( i ).size() && l < o.results->at( j ).size() )
 					{
-						if ( results->at( i ).at( k ) == other.results->at( j ).at( l ) )
+						// c = results->at( i ).at( k ), d = other.results->at( j ).at( l );
+						// ( e = len_ ? ( c + len_ ) : ( results->at( i ).at( k + 1 ) ) ), ( f = other.len_ ? ( d + other.len_ ) : ( other.results->at( j ).at( l + 1 ) ) );
+						c = results->at( i ).at( k ), d = o.results->at( j ).at( l );
+						e = results->at( i ).at( k + 1 ), f = o.results->at( j ).at( l + 1 );
+
+						if ( c == d )
 						{
-							if ( results->at( i ).at( k + 1 ) < other.results->at( j ).at( l + 1 ) )
-							{
-								v.insert( v.end(), { results->at( i ).at( k++ ), results->at( i ).at( k++ ) } );
-								v.insert( v.end(), { other.results->at( j ).at( l++ ), other.results->at( j ).at( l++ ) } );
-							}
+							if ( e < f )
+								v.insert( v.end(), { c, e, c, f } );
 							else
-							{
-								v.insert( v.end(), { other.results->at( j ).at( l++ ), other.results->at( j ).at( l++ ) } );
-								v.insert( v.end(), { results->at( i ).at( k++ ), results->at( i ).at( k++ ) } );
-							}
+								v.insert( v.end(), { c, f, c, e } );
+							k += 2;
+							l += 2;
 						}
-						else if ( results->at( i ).at( k ) < other.results->at( j ).at( l ) )
-							v.insert( v.end(), { results->at( i ).at( k++ ), results->at( i ).at( k++ ) } );
+						else if ( c < d )
+						{
+							v.insert( v.end(), { c, e } );
+							k += 2;
+						}
 						else
-							v.insert( v.end(), { other.results->at( j ).at( l++ ), other.results->at( j ).at( l++ ) } );
+						{
+							v.insert( v.end(), { d, f } );
+							l += 2;
+						}
 					}
 					if ( k >= results->at( i ).size() )
 						resti = l;
 					else
 						resti = k;
-					auto &rest = ( k >= results->at( i ).size() ) ? other.results->at( j ) : results->at( i );
+					auto &rest = ( k >= results->at( i ).size() ) ? o.results->at( j ) : results->at( i );
 					v.insert( v.end(), rest.begin() + resti, rest.end() );
 
 					++i;
@@ -242,11 +283,13 @@ struct Finder
 				else
 					++j;
 			}
-
 			size_t resti = i < results->size() ? i : j;
-			const vector< vector< size_t > > *rest = i < results->size() ? results : other.results;
+			const vector< vector< size_t > > *rest = i < results->size() ? results : o.results;
 			andr.insert( andr.end(), rest->begin() + resti, rest->end() );
-			return Result{ andr_p, true };
+			// std::cout << *results << "\n"
+			//           << *o.results << "\n"
+			//           << andr << std::endl;
+			return Result{ andr_p, 0, true };
 		}
 		Result operator||( const Result &other ) const
 		{
@@ -254,43 +297,55 @@ struct Finder
 				return Result{};
 			vector< vector< size_t > > *orr_p = new vector< vector< size_t > >();
 			vector< vector< size_t > > &orr = *orr_p;
-			orr.reserve( results->size() + other.results->size() );
+			// todo
+			Result t = fmt();
+			Result o = other.fmt();
+			const vector< vector< size_t > > *results = t.results;
+
+			orr.reserve( results->size() + o.results->size() );
 			size_t i = 0, j = 0, a, b;
-			while ( i < results->size() && j < other.results->size() )
+			while ( i < results->size() && j < o.results->size() )
 			{
 				a = results->at( i ).at( 0 );
-				b = other.results->at( j ).at( 0 );
+				b = o.results->at( j ).at( 0 );
 				if ( a == b )
 				{
 					orr.emplace_back( vector< size_t >{ a } );
-					orr.back().reserve( results->at( i ).size() + other.results->at( j ).size() - 1 );
-					size_t k = 1, l = 1, resti;
 					auto &v = orr.back();
-					while ( k < results->at( i ).size() && l < other.results->at( j ).size() )
+					v.reserve( results->at( i ).size() + o.results->at( j ).size() - 1 );
+					size_t k = 1, l = 1, c, d, e, f, resti;
+					while ( k < results->at( i ).size() && l < o.results->at( j ).size() )
 					{
-						if ( results->at( i ).at( k ) == other.results->at( j ).at( l ) )
+						// c = results->at( i ).at( k ), d = other.results->at( j ).at( l );
+						// ( e = len_ ? ( c + len_ ) : ( results->at( i ).at( k + 1 ) ) ), ( f = other.len_ ? ( d + other.len_ ) : ( other.results->at( j ).at( l + 1 ) ) );
+						c = results->at( i ).at( k ), d = o.results->at( j ).at( l );
+						e = results->at( i ).at( k + 1 ), f = o.results->at( j ).at( l + 1 );
+
+						if ( c == d )
 						{
-							if ( results->at( i ).at( k + 1 ) < other.results->at( j ).at( l + 1 ) )
-							{
-								v.insert( v.end(), { results->at( i ).at( k++ ), results->at( i ).at( k++ ) } );
-								v.insert( v.end(), { other.results->at( j ).at( l++ ), other.results->at( j ).at( l++ ) } );
-							}
-							else if ( results->at( i ).at( k + 1 ) > other.results->at( j ).at( l + 1 ) )
-							{
-								v.insert( v.end(), { other.results->at( j ).at( l++ ), other.results->at( j ).at( l++ ) } );
-								v.insert( v.end(), { results->at( i ).at( k++ ), results->at( i ).at( k++ ) } );
-							}
+							if ( e < f )
+								v.insert( v.end(), { c, e, c, f } );
+							else
+								v.insert( v.end(), { c, f, c, e } );
+							k += 2;
+							l += 2;
 						}
-						else if ( results->at( i ).at( k ) < other.results->at( j ).at( l ) )
-							v.insert( v.end(), { results->at( i ).at( k++ ), results->at( i ).at( k++ ) } );
+						else if ( c < d )
+						{
+							v.insert( v.end(), { c, e } );
+							k += 2;
+						}
 						else
-							v.insert( v.end(), { other.results->at( j ).at( l++ ), other.results->at( j ).at( l++ ) } );
+						{
+							v.insert( v.end(), { d, f } );
+							l += 2;
+						}
 					}
 					if ( k >= results->at( i ).size() )
 						resti = l;
 					else
 						resti = k;
-					auto &rest = ( k >= results->at( i ).size() ) ? other.results->at( j ) : results->at( i );
+					auto &rest = ( k >= results->at( i ).size() ) ? o.results->at( j ) : results->at( i );
 					v.insert( v.end(), rest.begin() + resti, rest.end() );
 					++i;
 					++j;
@@ -298,12 +353,52 @@ struct Finder
 				else if ( a < b )
 					orr.emplace_back( results->at( i++ ) );
 				else
-					orr.emplace_back( other.results->at( j++ ) );
+					orr.emplace_back( o.results->at( j++ ) );
 			}
-			return Result{ orr_p, true };
+			return Result{ orr_p, 0, true };
 		}
 		const vector< vector< size_t > > &array() const
 		{
+			return *results;
+		}
+		Result fmt() const
+		{
+			if ( len_ )
+			{
+				vector< vector< size_t > > *res_p = new vector< vector< size_t > >( results->size() );
+				for ( size_t i = 0; i < results->size(); ++i )
+				{
+					auto &v = results->at( i );
+					auto &res = res_p->at( i );
+					res.reserve( v.size() << 1 - 1 );
+					res.emplace_back( v.at( 0 ) );
+					for ( size_t j = 1; j < v.size(); ++j )
+						res.insert( res.end(), { v.at( j ) - len_, v.at( j ) } );
+				}
+				return Result{ res_p, 0, true };
+			}
+			return *this;
+		}
+		const vector< vector< size_t > > &array_fmt()
+		{
+			if ( len_ )
+			{
+				vector< vector< size_t > > *res_p = new vector< vector< size_t > >( results->size() );
+				for ( size_t i = 0; i < results->size(); ++i )
+				{
+					auto &v = results->at( i );
+					auto &res = res_p->at( i );
+					res.reserve( v.size() << 1 );
+					res.emplace_back( v.at( 0 ) );
+					for ( size_t j = 1; j < v.size(); ++j )
+						res.insert( res.end(), { v.at( j ) - len_, v.at( j ) } );
+				}
+				if ( hold )
+					delete results;
+				results = res_p;
+				hold = true;
+				len_ = 0;
+			}
 			return *results;
 		}
 		friend std::ostream &operator<<( std::ostream &os, const Result &v )
@@ -314,7 +409,7 @@ struct Finder
 	Result find( const string &text ) const
 	{
 		if ( index.find( text ) != index.end() )
-			return Result{ index.at( text ), &txts };
+			return Result{ index.at( text ), text.size(), &txts };
 		return Result{};
 	}
 };

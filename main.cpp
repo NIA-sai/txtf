@@ -95,8 +95,8 @@ int cli( int argc, char *argv[] )
 			             "-q expr       query\n"
 			             "exit          exit\n"
 			             "-i index      create index\n"
-			             "	-s spliter    1:use single char spliter\n"
-			             "              	2:(default)use simple spliter\n";
+			             "\t-s spliter    1:use single char spliter\n"
+			             "\t              2:(default)use simple spliter\n";
 			continue;
 		}
 
@@ -180,7 +180,7 @@ int cli( int argc, char *argv[] )
 				}
 			}
 
-			auto arr = final_result.array();
+			auto arr = final_result.array_fmt();
 
 			for ( auto &text : arr )
 			{
@@ -213,18 +213,20 @@ int main( int argc, char *argv[] )
 			             "-q expr       query\n"
 			             "  exit       exit\n"
 			             "-i index      create index\n"
-			             "	-s spliter     1:use single char spliter\n"
-			             "              	 2:(default)use simple spliter"
+			             "\t-s spliter     1:use single char spliter\n"
+			             "\t             	 2:(default)use simple spliter"
 			          << std::endl;
 		}
 
 		return 0;
 	}
+	#ifndef DEBUG
 	ShowWindow( GetConsoleWindow(), SW_HIDE );
+	#endif
 	return front_end::run();
 }
 /*
 g++ -std=c++20 -g  main.cpp  front_end.cpp  -I "D:/Code/Cpp/imgui-1.92.6" -I "D:/Code/Cpp/imgui-1.92.6/backends" -L "D:/Code/Cpp/imgui-1.92.6/build" -I "D:/Code/Cpp/GLFW/glfw-3.4.bin.WIN64/include" -L "D:/Code/Cpp/GLFW/glfw-3.4.bin.WIN64/lib-mingw-w64" -lglfw3 -lopengl32 -limgui -lgdi32 -luser32 -lshell32 -lcomdlg32 -lole32 -luuid  -o ./output/demo.exe
 g++ -std=c++20 -O2 -flto main.cpp  front_end.cpp  front_end_demo.cpp -I "D:/Code/Cpp/imgui-1.92.6" -I "D:/Code/Cpp/imgui-1.92.6/backends" -L "D:/Code/Cpp/imgui-1.92.6/build" -I "D:/Code/Cpp/GLFW/glfw-3.4.bin.WIN64/include" -L "D:/Code/Cpp/GLFW/glfw-3.4.bin.WIN64/lib-mingw-w64" -lglfw3 -lopengl32 -limgui -lgdi32 -luser32 -lshell32 -lcomdlg32 -lole32 -luuid "-Wl,--subsystem,windows" app.res -o ./output/txtf.exe
-
+g++ -std=c++20 -g main.cpp  front_end.cpp  front_end_demo.cpp -I "D:/Code/Cpp/imgui-1.92.6" -I "D:/Code/Cpp/imgui-1.92.6/backends" -L "D:/Code/Cpp/imgui-1.92.6/build" -I "D:/Code/Cpp/GLFW/glfw-3.4.bin.WIN64/include" -L "D:/Code/Cpp/GLFW/glfw-3.4.bin.WIN64/lib-mingw-w64" -lglfw3 -lopengl32 -limgui -lgdi32 -luser32 -lshell32 -lcomdlg32 -lole32 -luuid "-Wl,--subsystem,console" app.res -D DEBUG  -o ./output/TXTF4.exe
 */

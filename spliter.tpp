@@ -9,41 +9,41 @@ struct SimpleSpliter
 {
 	constexpr SimpleSpliter() = default;
 	template < typename C >
-	// std::unordered_map
 	HashMap< std::basic_string< C >, std::vector< size_t > >
 	operator()( size_t txt_index, TXT< C > *txt )
 	{
-		// std::unordered_map
 		HashMap< std::basic_string< C >, std::vector< size_t > > pos;
 		std::basic_string< C > buf{};
-		size_t last_position = -1;
+		// size_t last_position = -1;
 		while ( txt->readNext() )
 		{
 			if ( isLetter( txt->currentChar() ) )
 			{
 				buf += txt->currentChar();
-				if ( last_position == -1 )
-					last_position = txt->last_position;
+				// if ( last_position == -1 )
+				// last_position = txt->last_position;
 			}
 			else
 			{
 				if ( buf.empty() )
 					continue;
 				auto &v = pos.try_emplace( buf, std::initializer_list< size_t >{ txt_index } ).first->second;
-				v.insert( v.end(), { last_position, txt->last_position } );
+				v.insert( v.end(), { // last_position,
+				                     txt->last_position } );
 				buf.clear();
-				last_position = -1;
+				// last_position = -1;
 			}
 		}
 		if ( !buf.empty() )
 		{
 			auto &v = pos.try_emplace( buf, std::initializer_list< size_t >{ txt_index } ).first->second;
-			v.insert( v.end(), { last_position, txt->last_position } );
+			v.insert( v.end(), { // last_position,
+			                     txt->last_position } );
 		}
 		return pos;
 	}
 	template < typename C >
-	bool step( TXT< C > *txt, size_t &start, size_t &end, std::basic_string< C > &str)
+	bool step( TXT< C > *txt, size_t &start, size_t &end, std::basic_string< C > &str )
 	{
 		str.clear();
 		bool unStart = true;

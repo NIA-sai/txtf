@@ -211,18 +211,25 @@ namespace front_end
 		struct DemoIndex
 		{
 			bool isAuto = false;
+			int isRotating = 0;
 			int delayMs = 600;
 			double lastStepAt = 0.0;
 			DemoIndexStep step;
 			size_t current = 0;
+			size_t idx = 0;
+
 			HashMap< std::string, StaticQueue< size_t, 6 * 3 > > index;
 			HashMap< std::string, StaticQueue< size_t, 6 * 3 > >::iterator currentIt = index.begin();
+			HashMap< std::string, StaticQueue< size_t, 6 * 3 > >::iterator goalIt = index.begin();
 			void clear()
 			{
 				isAuto = false;
 				index.clear();
 				current = 0;
 				currentIt = index.begin();
+				goalIt = index.begin();
+				isRotating = 0;
+				idx = 0;
 			}
 		};
 		DemoIndex demoIndex;
