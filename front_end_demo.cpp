@@ -1,5 +1,6 @@
 #include "front_end.hpp"
-
+#include <cctype>
+#include <queue>
 namespace front_end
 {
 	bool IsAsciiLetterLocal( char c )
@@ -235,7 +236,233 @@ namespace front_end
 		else
 			++s.demoMergeCursor;
 	}
+	void ResetKMPDemo( AppState &s )
+	{
+		s.demoKMP.clear();
 
+		for ( auto &qt : s.queryTerms )
+			if ( std::strlen( qt.word ) > 0 ) s.demoKMP.patterns.push_back( qt.word );
+
+		for ( size_t i = 0; i < s.docs.size(); ++i )
+		{
+			if ( !s.docs[i].selected ) continue;
+			auto text = ReadDocAll( s.docs[i] );
+			if ( text.empty() ) continue;
+			s.demoKMP.docOrder.push_back( i );
+			s.demoKMP.docTexts.push_back( std::move( text ) );
+		}
+
+		if ( s.demoKMP.patterns.empty() ) return;
+
+		s.demoKMP.nodes.assign( 1, AppState::DemoKMPNode{} );
+		s.demoKMP.go.assign( 1, std::array< int, 256 >{} );
+		s.demoKMP.go[0].fill( -1 );
+
+		for ( size_t pid = 0; pid < s.demoKMP.patterns.size(); ++pid )
+		{
+			const auto &p = s.demoKMP.patterns[pid];
+			if ( p.empty() ) continue;
+			int cur = 0;
+			for ( unsigned char ch : p )
+			{
+				if ( s.demoKMP.go[cur][ch] == -1 )
+				{
+					s.demoKMP.go[cur][ch] = static_cast< int >( s.demoKMP.nodes.size() );
+					AppState::DemoKMPNode node;
+					node.parent = cur;
+					node.edge = ch;
+					s.demoKMP.nodes[cur].children.push_back( { ch, s.demoKMP.go[cur][ch] } );
+					s.demoKMP.nodes.push_back( std::move( node ) );
+					s.demoKMP.go.push_back( std::array< int, 256 >{} );
+					s.demoKMP.go.back().fill( -1 );
+				}
+				cur = s.demoKMP.go[cur][ch];
+			}
+			s.demoKMP.nodes[cur].out.push_back( pid );
+		}
+
+		std::queue< int > q;
+		for ( int c = 0; c < 256; ++c )
+		{
+			int nxt = s.demoKMP.go[0][c];
+			if ( nxt != -1 )
+			{
+				s.demoKMP.nodes[nxt].fail = 0;
+				q.push( nxt );
+			}
+			else
+			{
+				s.demoKMP.go[0][c] = 0;
+			}
+		}
+
+		while ( !q.empty() )
+		{
+			int v = q.front();
+			q.pop();
+			for ( int c = 0; c < 256; ++c )
+			{
+				int u = s.demoKMP.go[v][c];
+				if ( u != -1 )
+				{
+					s.demoKMP.nodes[u].fail = s.demoKMP.go[s.demoKMP.nodes[v].fail][c];
+					auto &out = s.demoKMP.nodes[u].out;
+					auto &failOut = s.demoKMP.nodes[s.demoKMP.nodes[u].fail].out;
+					out.insert( out.end(), failOut.begin(), failOut.end() );
+					q.push( u );
+				}
+				else
+				{
+					s.demoKMP.go[v][c] = s.demoKMP.go[s.demoKMP.nodes[v].fail][c];
+				}
+			}
+		}
+
+		s.demoKMP.currentDocCursor = 0;
+		s.demoKMP.currentPos = 0;
+		s.demoKMP.currentState = 0;
+		s.demoKMP.prevState = 0;
+		s.demoKMP.hasStep = false;
+		s.demoKMP.lastStepAt = ImGui::GetTime();
+	}
+
+	bool AdvanceKMPDemo( AppState &s )
+	{
+		auto &d = s.demoKMP;
+		if ( d.go.empty() || d.docTexts.empty() ) return false;
+
+		while ( d.currentDocCursor < d.docTexts.size() )
+		{
+			auto &text = d.docTexts[d.currentDocCursor];
+			if ( d.currentPos >= text.size() )
+			{
+				++d.currentDocCursor;
+				d.currentPos = 0;
+				d.currentState = 0;
+				d.prevState = 0;
+				continue;
+			}
+
+			unsigned char ch = static_cast< unsigned char >( text[d.currentPos] );
+			d.prevState = d.currentState;
+			d.currentState = d.go[d.currentState][ch];
+			d.currentChar = ch;
+			d.lastMatches = d.nodes[d.currentState].out;
+			d.hasStep = true;
+			++d.currentPos;
+			return true;
+		}
+		return false;
+	}
+
+	void RenderKMPTrieCanvas( AppState &s )
+	{
+		auto &d = s.demoKMP;
+		float h = ImGui::GetContentRegionAvail().y;
+		ImGui::BeginChild( "##KMPTrieCanvas", ImVec2( 0, h ), ImGuiChildFlags_Borders );
+		ImVec2 p0 = ImGui::GetCursorScreenPos();
+		ImVec2 sz = ImGui::GetContentRegionAvail();
+		ImGui::InvisibleButton( "##kmp_canvas_btn", sz, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle );
+		ImGuiIO &io = ImGui::GetIO();
+		if ( ImGui::IsItemHovered() )
+		{
+			if ( io.MouseWheel != 0 )
+			{
+				d.canvasScale *= ( io.MouseWheel > 0 ? 1.1f : 0.9f );
+				if ( d.canvasScale < 0.45f ) d.canvasScale = 0.45f;
+				if ( d.canvasScale > 2.2f ) d.canvasScale = 2.2f;
+			}
+			if ( ImGui::IsMouseDragging( ImGuiMouseButton_Left ) ) d.canvasPan.x += io.MouseDelta.x, d.canvasPan.y += io.MouseDelta.y;
+		}
+
+		ImDrawList *dl = ImGui::GetWindowDrawList();
+		dl->AddRectFilled( p0, ImVec2( p0.x + sz.x, p0.y + sz.y ), ImGui::GetColorU32( ImVec4( 0.985f, 0.99f, 1.0f, 1.0f ) ) );
+
+		if ( d.nodes.empty() )
+		{
+			ShowTxtInMiddle( "Trie 为空" );
+			ImGui::EndChild();
+			return;
+		}
+
+		std::vector< int > depth( d.nodes.size(), -1 );
+		std::queue< int > q;
+		depth[0] = 0;
+		q.push( 0 );
+		int maxDepth = 0;
+		while ( !q.empty() )
+		{
+			int u = q.front();
+			q.pop();
+			for ( auto &e : d.nodes[u].children )
+			{
+				depth[e.second] = depth[u] + 1;
+				maxDepth = std::max( maxDepth, depth[e.second] );
+				q.push( e.second );
+			}
+		}
+
+		std::vector< std::vector< int > > layers( maxDepth + 1 );
+		for ( size_t i = 0; i < d.nodes.size(); ++i )
+		{
+			int dep = depth[i] < 0 ? 0 : depth[i];
+			layers[dep].push_back( static_cast< int >( i ) );
+		}
+
+		std::vector< ImVec2 > pos( d.nodes.size(), p0 );
+		float yStep = 110.0f * d.canvasScale;
+		float nodeR = 19.0f * d.canvasScale;
+		for ( size_t dep = 0; dep < layers.size(); ++dep )
+		{
+			auto &layer = layers[dep];
+			if ( layer.empty() ) continue;
+			float xGap = ( 120.0f / std::max( 1.0f, d.canvasScale ) ) * d.canvasScale;
+			float width = ( static_cast< float >( layer.size() - 1 ) ) * xGap;
+			float startX = p0.x + sz.x * 0.5f - width * 0.5f + d.canvasPan.x;
+			float y = p0.y + 36.0f + dep * yStep + d.canvasPan.y;
+			for ( size_t i = 0; i < layer.size(); ++i )
+				pos[layer[i]] = ImVec2( startX + i * xGap, y );
+		}
+
+		for ( size_t u = 0; u < d.nodes.size(); ++u )
+		{
+			for ( auto &e : d.nodes[u].children )
+			{
+				dl->AddLine( pos[u], pos[e.second], ImGui::GetColorU32( ImVec4( 0.20f, 0.55f, 0.85f, 0.9f ) ), 2.0f );
+				char label[8] = "?";
+				if ( std::isprint( e.first ) )
+					snprintf( label, sizeof( label ), "%c", static_cast< char >( e.first ) );
+				ImVec2 mid( ( pos[u].x + pos[e.second].x ) * 0.5f, ( pos[u].y + pos[e.second].y ) * 0.5f );
+				dl->AddText( ImVec2( mid.x - 4, mid.y - 10 ), ImGui::GetColorU32( palette::TextSub ), label );
+			}
+		}
+
+		for ( size_t i = 1; i < d.nodes.size(); ++i )
+		{
+			int f = d.nodes[i].fail;
+			if ( f == static_cast< int >( i ) ) continue;
+			dl->AddLine( pos[i], pos[f], ImGui::GetColorU32( ImVec4( 0.90f, 0.52f, 0.12f, 0.32f ) ), 1.0f );
+		}
+
+		for ( size_t i = 0; i < d.nodes.size(); ++i )
+		{
+			ImVec4 col = ImVec4( 0.40f, 0.62f, 0.86f, 0.95f );
+			if ( d.hasStep && static_cast< int >( i ) == d.prevState ) col = ImVec4( 0.96f, 0.72f, 0.20f, 0.95f );
+			if ( d.hasStep && static_cast< int >( i ) == d.currentState ) col = ImVec4( 0.88f, 0.26f, 0.26f, 1.0f );
+			dl->AddCircleFilled( pos[i], nodeR, ImGui::GetColorU32( col ) );
+			dl->AddCircle( pos[i], nodeR, ImGui::GetColorU32( ImVec4( 1, 1, 1, 0.9f ) ), 0, 2.0f );
+
+			char buf[32];
+			snprintf( buf, sizeof( buf ), "%zu", i );
+			ImVec2 ts = ImGui::CalcTextSize( buf );
+			dl->AddText( ImVec2( pos[i].x - ts.x * 0.5f, pos[i].y - ts.y * 0.5f ), ImGui::GetColorU32( ImVec4( 1, 1, 1, 1 ) ), buf );
+
+			if ( !d.nodes[i].out.empty() )
+				dl->AddCircleFilled( ImVec2( pos[i].x + nodeR * 0.78f, pos[i].y - nodeR * 0.78f ), 4.5f * d.canvasScale, ImGui::GetColorU32( palette::Success ) );
+		}
+
+		ImGui::EndChild();
+	}
 	void RenderRowsBrief( const std::vector< std::vector< size_t > > &rows, int hi, ImVec4 hiCol )
 	{
 		for ( int r = 0; r < static_cast< int >( rows.size() ) && r < 6; ++r )
@@ -804,6 +1031,102 @@ namespace front_end
 		else
 			ShowTxtInMiddle( "至少两个查询词才能演示合并" );
 
+		ImGui::End();
+	}
+	void RenderKMPDemoPage( AppState &s )
+	{
+		if ( !s.showKMPDemoPage ) return;
+		ImGui::SetNextWindowSize( ImVec2( 1000, 720 ), ImGuiCond_FirstUseEver );
+		ImGui::SetNextWindowBgAlpha( 0.88f );
+		if ( !ImGui::Begin( "KMP / AC 演示", &s.showKMPDemoPage ) )
+		{
+			ImGui::End();
+			return;
+		}
+
+		if ( s.demoKMP.nodes.empty() && s.demoKMP.patterns.empty() ) ResetKMPDemo( s );
+
+		bool canStep = !s.demoKMP.go.empty() && !s.demoKMP.docTexts.empty();
+		ImGui::BeginDisabled( !canStep );
+		if ( ImGui::Button( "步进", ImVec2( 80, 0 ) ) ) AdvanceKMPDemo( s );
+		ImGui::EndDisabled();
+
+		ImGui::SameLine();
+		ImGui::BeginDisabled( !canStep );
+		if ( ImGui::Button( s.demoKMP.isAuto ? "停止" : "自动", ImVec2( 100, 0 ) ) )
+		{
+			s.demoKMP.isAuto = !s.demoKMP.isAuto;
+			s.demoKMP.lastStepAt = ImGui::GetTime();
+		}
+		ImGui::EndDisabled();
+
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth( 160 );
+		ImGui::SliderInt( "间隔(ms)", &s.demoKMP.delayMs, 30, 2000 );
+		ImGui::SameLine();
+		if ( ImGui::Button( "重置", ImVec2( 80, 0 ) ) ) ResetKMPDemo( s );
+
+		if ( s.demoKMP.isAuto && canStep )
+		{
+			double now = ImGui::GetTime();
+			if ( ( now - s.demoKMP.lastStepAt ) * 1000.0 >= s.demoKMP.delayMs )
+			{
+				if ( !AdvanceKMPDemo( s ) ) s.demoKMP.isAuto = false;
+				s.demoKMP.lastStepAt = now;
+			}
+		}
+
+		ImGui::Text( "模式串数: %zu, Trie节点数: %zu", s.demoKMP.patterns.size(), s.demoKMP.nodes.size() );
+		ImGui::SameLine();
+		ImGui::Text( "文档进度: %zu / %zu", s.demoKMP.currentDocCursor, s.demoKMP.docTexts.size() );
+
+		if ( !canStep )
+		{
+			ShowTxtInMiddle( "请先选择文档并输入查询词，再打开 KMP 演示" );
+			ImGui::End();
+			return;
+		}
+
+		if ( s.demoKMP.currentDocCursor < s.demoKMP.docOrder.size() )
+		{
+			size_t docIndex = s.demoKMP.docOrder[s.demoKMP.currentDocCursor];
+			ImGui::Text( "当前文档[%zu]: %s", docIndex, s.docs[docIndex].displayName.c_str() );
+		}
+
+		if ( s.demoKMP.hasStep && s.demoKMP.currentDocCursor < s.demoKMP.docOrder.size() )
+		{
+			size_t pos = s.demoKMP.currentPos == 0 ? 0 : s.demoKMP.currentPos - 1;
+			size_t docIndex = s.demoKMP.docOrder[s.demoKMP.currentDocCursor];
+			ImGui::Text( "字符位置: %zu, 当前字符: 0x%02X (%c), 状态: %d -> %d", pos, s.demoKMP.currentChar,
+			             std::isprint( s.demoKMP.currentChar ) ? static_cast< char >( s.demoKMP.currentChar ) : '?',
+			             s.demoKMP.prevState, s.demoKMP.currentState );
+
+			if ( !s.demoKMP.lastMatches.empty() )
+			{
+				std::string hit = "命中模式: ";
+				for ( size_t i = 0; i < s.demoKMP.lastMatches.size(); ++i )
+				{
+					size_t pid = s.demoKMP.lastMatches[i];
+					if ( pid < s.demoKMP.patterns.size() ) hit += s.demoKMP.patterns[pid];
+					if ( i + 1 < s.demoKMP.lastMatches.size() ) hit += ", ";
+				}
+				ImGui::PushStyleColor( ImGuiCol_Text, palette::Success );
+				ImGui::Text( "%s", hit.c_str() );
+				ImGui::PopStyleColor();
+			}
+
+			size_t newStart = 0, newEnd = 0;
+			auto context = ReadDocContent( s, docIndex, pos, pos + 1, s.contextChars, newStart, newEnd );
+			ShowContextSnippet( context, newStart, newEnd );
+		}
+		else
+		{
+			ShowTxtInMiddle( "点击步进或自动，观察状态机在文本上移动" );
+		}
+
+		ImGui::Separator();
+		ImGui::Text( "Trie 指针移动（红: current, 黄: previous；橙线: fail）" );
+		RenderKMPTrieCanvas( s );
 		ImGui::End();
 	}
 }

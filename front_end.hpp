@@ -6,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstring>
+#include <array>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -275,6 +276,60 @@ namespace front_end
 		int demoFlyDoc = -1;
 		int demoFlyAddFrom = 0;
 		int demoFlyOutIndex = 0;
+
+		struct DemoKMPNode
+		{
+			std::vector< std::pair< unsigned char, int > > children;
+			int fail = 0;
+			std::vector< size_t > out;
+			int parent = -1;
+			unsigned char edge = 0;
+		};
+
+		struct DemoKMP
+		{
+			bool isAuto = false;
+			int delayMs = 450;
+			double lastStepAt = 0.0;
+			size_t currentDocCursor = 0;
+			size_t currentPos = 0;
+			int currentState = 0;
+			int prevState = 0;
+			unsigned char currentChar = 0;
+			bool hasStep = false;
+			std::vector< size_t > lastMatches;
+
+			std::vector< size_t > docOrder;
+			std::vector< std::string > docTexts;
+			std::vector< std::string > patterns;
+			std::vector< DemoKMPNode > nodes;
+			std::vector< std::array< int, 256 > > go;
+
+			float canvasScale = 1.0f;
+			ImVec2 canvasPan = ImVec2( 0.0f, 0.0f );
+
+			void clear()
+			{
+				isAuto = false;
+				lastStepAt = 0.0;
+				currentDocCursor = 0;
+				currentPos = 0;
+				currentState = 0;
+				prevState = 0;
+				currentChar = 0;
+				hasStep = false;
+				lastMatches.clear();
+				docOrder.clear();
+				docTexts.clear();
+				patterns.clear();
+				nodes.clear();
+				go.clear();
+				canvasScale = 1.0f;
+				canvasPan = ImVec2( 0.0f, 0.0f );
+			}
+		};
+		DemoKMP demoKMP;
+		bool showKMPDemoPage = false;
 	};
 
 
@@ -293,7 +348,8 @@ namespace front_end
 	void RenderIndexDemoPage( AppState &s );
 	void RenderMergeDemoPage( AppState &s );
 	void DoSearch( AppState &s );
-
+		void DoKMPSearch( AppState &s );
+	void RenderKMPDemoPage( AppState &s );
 
 	std::string ReadDocContent( AppState &s, size_t docIndex, size_t start, size_t end, int len, size_t &newStart, size_t &newEnd );
 	std::string WtoU8( const std::wstring &ws );

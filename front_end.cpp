@@ -1,11 +1,11 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include "front_end.hpp"
+#include "kmp.hpp"
 #include <GLFW/glfw3native.h>
 #include <cmath>
 #include <fstream>
 #include <iostream>
 #include <thread>
-
 namespace front_end
 {
 
@@ -837,8 +837,9 @@ namespace front_end
 		{
 			bool canSearch = s.indexStatus != AppState::IndexStatus::NotBuilt &&
 			                 s.indexStatus != AppState::IndexStatus::Building && std::strlen( s.queryTerms[0].word ) > 0;
-			if ( !canSearch ) ImGui::BeginDisabled();
+			bool canKMPSearch = std::strlen( s.queryTerms[0].word ) > 0;
 
+			if ( !canSearch ) ImGui::BeginDisabled();
 			ImGui::PushStyleColor( ImGuiCol_Text, palette::TextWhite );
 			float searchBtnW = 100.0f;
 			if ( ImGui::Button( "搜索", ImVec2( searchBtnW, 0 ) ) )
@@ -856,7 +857,12 @@ namespace front_end
 				ImGui::PopStyleColor();
 				ImGui::SameLine();
 			}
-
+			if ( !canKMPSearch ) ImGui::BeginDisabled();
+			ImGui::PushStyleColor( ImGuiCol_Text, palette::TextWhite );
+			if ( ImGui::Button( "直接搜索", ImVec2( searchBtnW, 0 ) ) )
+				DoKMPSearch( s );
+			ImGui::PopStyleColor();
+			if ( !canKMPSearch ) ImGui::EndDisabled();
 			ImGui::SameLine();
 			ImGui::PushStyleColor( ImGuiCol_Text, palette::TextSub );
 			ImGui::Text( "上下文:" );
@@ -966,6 +972,116 @@ namespace front_end
 		    qDesc, modeStr.c_str(), s.lastQueryMs,
 		    static_cast< int >( s.results.size() ), totalHits } );
 	}
+
+	void DoKMPSearch( AppState &s )
+	{
+		if ( s.indexStatus == AppState::IndexStatus::Building ) return;
+		if ( s.queryTerms.empty() || std::strlen( s.queryTerms[0].word ) == 0 ) return;
+
+		s.results.clear();
+
+		struct ValidTerm
+		{
+			std::string word;
+			int op;
+		};
+		std::vector< ValidTerm > terms;
+		for ( auto &qt : s.queryTerms )
+		{
+			if ( std::strlen( qt.word ) == 0 ) continue;
+			terms.push_back( { std::string( qt.word ), qt.op } );
+		}
+		if ( terms.empty() ) return;
+
+		std::string qDesc;
+		for ( size_t i = 0; i < terms.size(); ++i )
+		{
+			if ( i > 0 )
+				qDesc += ( terms[i - 1].op == 0 ) ? " AND " : " OR ";
+			qDesc += terms[i].word;
+		}
+
+		std::vector< std::string > patterns;
+		patterns.reserve( terms.size() );
+		for ( auto &term : terms ) patterns.push_back( term.word );
+
+		auto t0 = std::chrono::high_resolution_clock::now();
+
+		for ( size_t i = 0; i < s.docs.size(); ++i )
+		{
+			const auto &doc = s.docs[i];
+			if ( !doc.selected ) continue;
+
+			std::string content;
+			if ( doc.isFile )
+			{
+				std::ifstream ifs( doc.filePath, std::ios::binary );
+				if ( !ifs.is_open() ) continue;
+				ifs.seekg( 0, std::ios::end );
+				size_t len = static_cast< size_t >( ifs.tellg() );
+				ifs.seekg( 0, std::ios::beg );
+				content.resize( len );
+				ifs.read( &content[0], len );
+			}
+			else
+			{
+				content = doc.rawText;
+			}
+
+			auto matches = kmp::findMultiMatches_AhoCorasick( content, patterns );
+			std::vector< bool > matched( terms.size(), false );
+			std::vector< std::pair< size_t, size_t > > ranges;
+
+			for ( auto &m : matches )
+			{
+				if ( m.patternIndex >= terms.size() ) continue;
+				matched[m.patternIndex] = true;
+				ranges.push_back( { m.start, m.end } );
+			}
+
+			bool pass = matched[0];
+			for ( size_t t = 1; t < matched.size(); ++t )
+			{
+				if ( terms[t - 1].op == 0 )
+					pass = pass && matched[t];
+				else
+					pass = pass || matched[t];
+			}
+
+			if ( !pass ) continue;
+
+			std::sort( ranges.begin(), ranges.end(), []( auto &lhs, auto &rhs )
+			           {
+				           if ( lhs.first != rhs.first ) return lhs.first < rhs.first;
+				           return lhs.second < rhs.second; } );
+
+			ResultEntry re;
+			re.docIndex = i;
+			re.docName = std::to_string( i ) + ": " + doc.displayName;
+			for ( auto &r : ranges )
+			{
+				re.positions.push_back( r.first );
+				re.positions.push_back( r.second );
+			}
+			re.currentPos = 0;
+			s.results.push_back( std::move( re ) );
+		}
+
+		auto t1 = std::chrono::high_resolution_clock::now();
+		s.lastQueryMs = std::chrono::duration< double, std::milli >( t1 - t0 ).count();
+		s.lastQueryStr = qDesc;
+		s.searched = true;
+
+		int totalHits = 0;
+		for ( auto &r : s.results ) totalHits += static_cast< int >( r.positions.size() >> 1 );
+		s.perfHistory.push_back( PerfRecord{
+		    qDesc,
+		    "KMP-AC",
+		    s.lastQueryMs,
+		    static_cast< int >( s.results.size() ),
+		    totalHits } );
+	}
+
 	void ShowTxtInMiddle( const char *txt )
 	{
 		float w = ImGui::CalcTextSize( txt ).x;
@@ -2042,7 +2158,11 @@ namespace front_end
 						if ( state.indexStatus == AppState::IndexStatus::Built )
 							state.finder->step_restart();
 					}
-
+					if ( ImGui::MenuItem( "KMP演示" ) && !state.showKMPDemoPage )
+					{
+						state.showKMPDemoPage = true;
+						state.demoKMP.clear();
+					}
 					if ( ImGui::MenuItem( "合并演示" ) && !state.showMergeDemoPage )
 					{
 						state.showMergeDemoPage = true;
@@ -2187,6 +2307,7 @@ namespace front_end
 			RenderPopups( state );
 			RenderIndexDemoPage( state );
 			RenderMergeDemoPage( state );
+			RenderKMPDemoPage( state );
 			ImGui::End();
 
 
