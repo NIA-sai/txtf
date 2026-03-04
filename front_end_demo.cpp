@@ -25,7 +25,7 @@ namespace front_end
 		bool ok = false;
 		switch ( s.splitterMode )
 		{
-		case AppState::SplitterMode::Single :
+		case SplitterMode::Single :
 			ok = s.finder->step_next( s.singleCharSplitter,
 			                          s.demoIndex.step.start, s.demoIndex.step.end, s.demoIndex.step.docIndex, s.demoIndex.step.word );
 			break;
@@ -91,7 +91,7 @@ namespace front_end
 				if ( op == "OR" ) merged.insert( merged.end(), rhsRows[j].begin() + 1, rhsRows[j].end() );
 				st.outRows.push_back( std::move( merged ) );
 				st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, static_cast< int >( a ), static_cast< int >( b ),
-				                                                           "左右相同 收录", 3 } );
+				                                                           true, true, "左右相同 收录", 3 } );
 				++i;
 				++j;
 			}
@@ -100,10 +100,10 @@ namespace front_end
 				if ( op == "OR" )
 				{
 					st.outRows.push_back( lhsRows[i] );
-					st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, static_cast< int >( a ), static_cast< int >( b ), "左小，收录左侧", 1 } );
+					st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, static_cast< int >( a ), static_cast< int >( b ), true, false, "左小，收录左侧", 1 } );
 				}
 				else
-					st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, static_cast< int >( a ), static_cast< int >( b ), "左小 跳过左侧", 0 } );
+					st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, static_cast< int >( a ), static_cast< int >( b ), true, false, "左小 跳过左侧", 0 } );
 				++i;
 			}
 			else
@@ -111,10 +111,10 @@ namespace front_end
 				if ( op == "OR" )
 				{
 					st.outRows.push_back( rhsRows[j] );
-					st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, static_cast< int >( a ), static_cast< int >( b ), "右小 收录右侧", 2 } );
+					st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, static_cast< int >( a ), static_cast< int >( b ), false, true, "右小 收录右侧", 2 } );
 				}
 				else
-					st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, static_cast< int >( a ), static_cast< int >( b ), "右小 跳过右侧", 0 } );
+					st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, static_cast< int >( a ), static_cast< int >( b ), false, true, "右小 跳过右侧", 0 } );
 				++j;
 			}
 		}
@@ -124,13 +124,13 @@ namespace front_end
 			while ( i < lhsRows.size() )
 			{
 				st.outRows.push_back( lhsRows[i] );
-				st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, static_cast< int >( lhsRows[i][0] ), -1, "右侧耗尽, 追加左侧", 1 } );
+				st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, static_cast< int >( lhsRows[i][0] ), -1, true, false, "右侧耗尽, 追加左侧", 1 } );
 				++i;
 			}
 			while ( j < rhsRows.size() )
 			{
 				st.outRows.push_back( rhsRows[j] );
-				st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, -1, static_cast< int >( rhsRows[j][0] ), "左侧耗尽, 追加右侧", 2 } );
+				st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, -1, static_cast< int >( rhsRows[j][0] ), false, true, "左侧耗尽, 追加右侧", 2 } );
 				++j;
 			}
 		}
@@ -139,12 +139,12 @@ namespace front_end
 			if ( i < lhsRows.size() )
 			{
 				st.outRows.push_back( lhsRows[i] );
-				st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, -1, -1, "右侧耗尽, 结束", 0 } );
+				st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, -1, -1, false, false, "右侧耗尽, 结束", 0 } );
 			}
 			else if ( j < rhsRows.size() )
 			{
 				st.outRows.push_back( rhsRows[j] );
-				st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, -1, -1, "左侧耗尽, 结束", 0 } );
+				st.pointerSteps.push_back( AppState::DemoMergePointerStep{ i, j, -1, -1, false, false, "左侧耗尽, 结束", 0 } );
 			}
 		}
 
@@ -154,6 +154,9 @@ namespace front_end
 
 	void ResetMergeDemo( AppState &s )
 	{
+		s.demoMergeShift = 0.0f;
+		s.demoMergeRShift = 0.0f;
+		s.demoMergeLShift = 0.0f;
 		s.demoMergeAuto = false;
 		s.demoMergeSteps.clear();
 		s.demoMergeCursor = 0;
@@ -199,7 +202,7 @@ namespace front_end
 
 		for ( size_t i = 1; i < terms.size(); ++i )
 		{
-			auto rhsResult = s.finder->find( terms[i].word ).array_fmt();
+			auto rhsResult = s.finder->find( terms[i].word ).array();
 			std::string op = terms[i - 1].op == 0 ? "AND" : "OR";
 			auto step = BuildMergeStepTrace( acc, rhsResult, s.demoExpr, terms[i].word, op );
 			acc = step.outRows;
@@ -216,6 +219,12 @@ namespace front_end
 		auto &ms = s.demoMergeSteps[s.demoMergeCursor];
 		if ( ms.pointerCursor < ms.pointerSteps.size() )
 		{
+			if ( ms.pointerSteps[ms.pointerCursor].addFrom )
+				s.demoMergeShift = 1.0f;
+			if ( ms.pointerSteps[ms.pointerCursor].leftdown )
+				s.demoMergeLShift = 1.0f;
+			if ( ms.pointerSteps[ms.pointerCursor].rightdown )
+				s.demoMergeRShift = 1.0f;
 			++ms.pointerCursor;
 			if ( ms.pointerCursor == ms.pointerSteps.size() )
 			{
@@ -590,7 +599,7 @@ namespace front_end
 		size_t cnt = 0;
 		size_t upto = std::min( ms.pointerCursor, ms.pointerSteps.size() );
 		for ( size_t i = 0; i < upto; ++i )
-			if ( ms.pointerSteps[i].addFrom != 0 ) ++cnt;
+			if ( ms.pointerSteps[i].addFrom ) ++cnt;
 		return std::min( cnt, ms.outRows.size() );
 	}
 	void RenderMergeBlocksCanvas( AppState &s, AppState::DemoMergeStep &ms, int hiI, int hiJ, int addFrom )
@@ -625,9 +634,8 @@ namespace front_end
 		};
 		s.demoAnimI = lerpf( s.demoAnimI, static_cast< float >( hiI < 0 ? 0 : hiI ) );
 		s.demoAnimJ = lerpf( s.demoAnimJ, static_cast< float >( hiJ < 0 ? 0 : hiJ ) );
-		s.demoAnimOut = lerpf( s.demoAnimOut, static_cast< float >( s.demoCurrentDocs ) );
 
-		int visible = 3;
+		constexpr int visible = 3;
 		auto clampPtr = [&]( int ptr, size_t n )
 		{
 			if ( n == 0 ) return 0;
@@ -635,7 +643,7 @@ namespace front_end
 			int maxPtr = static_cast< int >( n - 1 );
 			return ptr > maxPtr ? maxPtr : ptr;
 		};
-		auto drawGroup = [&]( const std::vector< std::vector< size_t > > &rows, ImVec2 org, int ptr, bool horizontal, bool highlightAdd, ImVec4 colBase )
+		auto drawGroup = [&]( const std::vector< std::vector< size_t > > &rows, ImVec2 org, int ptr, int visible, bool horizontal, bool highlightAdd, ImVec4 colBase, float shift )
 		{
 			const float textScale = 0.82f * s.demoMergeCanvasScale;
 			ptr = clampPtr( ptr, rows.size() );
@@ -647,8 +655,8 @@ namespace front_end
 				ImVec4 c = colBase;
 				c.w = a;
 				if ( i == ptr ) c = highlightAdd ? ImVec4( 0.10f, 0.72f, 0.40f, 1.0f ) : ImVec4( 0.14f, 0.48f, 0.82f, 1.0f );
-				float x = org.x + ( horizontal ? ( i - ptr ) * ( blockW + gap ) : 0 );
-				float y = org.y + ( horizontal ? 0 : ( i - ptr ) * ( blockH + gap ) );
+				float x = org.x + ( horizontal ? ( i - ptr + shift ) * ( blockW + gap ) : 0 );
+				float y = org.y + ( horizontal ? 0 : ( i - ptr + shift ) * ( blockH + gap ) );
 				dl->AddRectFilled( ImVec2( x, y ), ImVec2( x + blockW, y + blockH ), ImGui::GetColorU32( c ), 5.0f * s.demoMergeCanvasScale );
 				dl->AddRect( ImVec2( x, y ), ImVec2( x + blockW, y + blockH ), ImGui::GetColorU32( ImVec4( 1, 1, 1, 0.6f ) ), 5.0f * s.demoMergeCanvasScale );
 				if ( !rows[i].empty() )
@@ -681,18 +689,29 @@ namespace front_end
 		int pi = clampPtr( hiI < 0 ? 0 : static_cast< int >( s.demoAnimI + 0.5f ), ms.lhsRows.size() );
 		int pj = clampPtr( hiJ < 0 ? 0 : static_cast< int >( s.demoAnimJ + 0.5f ), ms.rhsRows.size() );
 		size_t visibleOutCount = GetMergeDemoVisibleOutCount( ms );
-		int po = clampPtr( static_cast< int >( s.demoAnimOut + 0.5f ), ms.outRows.size() );
 
 		ImVec2 leftOrg = base;
 		ImVec2 rightOrg = ImVec2( base.x + 190 * s.demoMergeCanvasScale, base.y );
 		ImVec2 outOrg = ImVec2( base.x + 95 * s.demoMergeCanvasScale, base.y + 180 * s.demoMergeCanvasScale );
 
-		drawGroup( ms.lhsRows, leftOrg, pi, false, addFrom == 1 || addFrom == 3, ImVec4( 0.45f, 0.64f, 0.85f, 0.5f ) );
-		drawGroup( ms.rhsRows, rightOrg, pj, false, addFrom == 2 || addFrom == 3, ImVec4( 0.42f, 0.62f, 0.84f, 0.5f ) );
+		if ( s.demoMergeShift > 0.0f )
+		{
+			s.demoMergeShift -= 0.08f;
+		}
+		if ( s.demoMergeLShift > 0.0f )
+		{
+			s.demoMergeLShift -= 0.08f;
+		}
+		if ( s.demoMergeRShift > 0.0f )
+		{
+			s.demoMergeRShift -= 0.08f;
+		}
+		drawGroup( ms.lhsRows, leftOrg, pi, visible, false, addFrom == 1 || addFrom == 3, ImVec4( 0.45f, 0.64f, 0.85f, 0.5f ), s.demoMergeLShift );
+		drawGroup( ms.rhsRows, rightOrg, pj, visible, false, addFrom == 2 || addFrom == 3, ImVec4( 0.42f, 0.62f, 0.84f, 0.5f ), s.demoMergeRShift );
 		std::vector< std::vector< size_t > > shownOutRows;
 		shownOutRows.reserve( visibleOutCount );
 		for ( size_t i = 0; i < visibleOutCount; ++i ) shownOutRows.push_back( ms.outRows[i] );
-		drawGroup( shownOutRows, outOrg, po, true, false, ImVec4( 0.64f, 0.72f, 0.80f, 0.45f ) );
+		drawGroup( shownOutRows, outOrg, ms.outRows.size() - 1, visible * 2, true, false, ImVec4( 0.64f, 0.72f, 0.80f, 0.45f ), s.demoMergeShift );
 		if ( s.demoFlyActive )
 		{
 			ImVec2 from = s.demoFlyAddFrom == 2 ? ImVec2( rightOrg.x, rightOrg.y ) : ImVec2( leftOrg.x, leftOrg.y );

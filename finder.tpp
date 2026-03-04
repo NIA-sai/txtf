@@ -90,6 +90,11 @@ struct Finder
 		if ( index >= txts.size() ) return;
 		txts[index]->deselect();
 	}
+	void delete_( size_t index )
+	{
+		if ( index >= txts.size() ) return;
+		txts[index]->delete_();
+	}
 	template < typename S = SimpleSpliter >
 	void create_index( S &&s = S() )
 	{

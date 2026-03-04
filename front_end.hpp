@@ -77,6 +77,7 @@ namespace front_end
 		std::string rawText;
 		bool isFile = true;
 		bool selected = true;
+		bool deleted = false;
 	};
 
 
@@ -102,13 +103,26 @@ namespace front_end
 		int matchedDocs;
 		int totalHits;
 	};
-
+	enum struct HashMode
+	{
+		Simple,
+		Simpler,
+		Bin_Up,
+		Shift
+	};
+	enum struct SplitterMode
+	{
+		Single,
+		Simple
+	};
 	struct IndexRecord
 	{
 		size_t docCount;
 		size_t keyCount;
 		size_t posCount;
 		double timeMs;
+		SplitterMode splitterMode;
+		HashMode hashMode;
 	};
 
 	struct AppState
@@ -128,7 +142,8 @@ namespace front_end
 			size_t j = 0;
 			int leftDoc = -1;
 			int rightDoc = -1;
-
+			bool leftdown = false;
+			bool rightdown = false;
 			std::string action;
 			int addFrom = 0;  // 0:none 1:left 2:right 3:both
 		};
@@ -165,11 +180,10 @@ namespace front_end
 		IndexStatus indexStatus = IndexStatus::NotBuilt;
 		double indexTimeMs = 0.0;
 
-		enum struct SplitterMode
-		{
-			Single,
-			Simple
-		};
+
+
+
+		HashMode hashMode = HashMode::Simple;
 		SplitterMode splitterMode = SplitterMode::Simple;
 		SimpleSpliter simpleSplitter{};
 		SingleCharSpliter singleCharSplitter{};
@@ -247,10 +261,12 @@ namespace front_end
 		std::string demoExpr;
 
 		float demoMergeCanvasScale = 1.0f;
+		float demoMergeShift = 0.0f;
+		float demoMergeLShift = 0.0f;
+		float demoMergeRShift = 0.0f;
 		ImVec2 demoMergeCanvasPan = ImVec2( 0.0f, 0.0f );
 		float demoAnimI = 0.0f;
 		float demoAnimJ = 0.0f;
-		float demoAnimOut = 0.0f;
 		int demoLastStepSeen = -1;
 		bool demoFlyActive = false;
 		float demoFlyT = 0.0f;

@@ -7,10 +7,20 @@
 #include <string>
 #include <utility>
 #include <vector>
-// 131hash
-struct Simple_Hasher
+struct Hasher
 {
-	template < typename C >
+	// template < typename C >
+	using C = char;
+	virtual size_t operator()( const std::basic_string< C > &s ) const = 0;
+};
+
+
+// 131hash
+struct Simple_Hasher : public Hasher
+{
+	// template < typename C >
+	using C = char;
+
 	size_t operator()( const std::basic_string< C > &s ) const
 	{
 		size_t hash = 0;
@@ -20,14 +30,43 @@ struct Simple_Hasher
 	}
 };
 // 31hash
-struct Simpler_Hasher
+struct Simpler_Hasher : public Hasher
 {
-	template < typename C >
+	// template < typename C >
+	using C = char;
+
 	size_t operator()( const std::basic_string< C > &s ) const
 	{
 		size_t hash = 0;
-		for ( char c : s )
+		for ( C c : s )
 			hash = ( hash << 5 ) - hash + c;
+		return hash;
+	}
+};
+
+struct Bin_Up_Hasher : public Hasher
+{
+	// template < typename C >
+	using C = char;
+
+	size_t operator()( const std::basic_string< C > &s ) const
+	{
+		size_t hash = 0;
+		for ( C c : s )
+			hash ^= c << ( hash & ( sizeof( C ) * 8 - 1 ) ) | c >> ( ~hash & ( sizeof( C ) * 8 - 1 ) );
+		return hash;
+	}
+};
+struct Shift_Hasher : public Hasher
+{
+	// template < typename C >
+	using C = char;
+
+	size_t operator()( const std::basic_string< C > &s ) const
+	{
+		size_t hash = 0;
+		for ( C c : s )
+			hash = ( hash << 1 ) + ( hash >> 63 ) + c;
 		return hash;
 	}
 };
@@ -87,7 +126,8 @@ struct Simpler_Hasher
 template <
     typename K,
     typename V,
-    typename Hash =  Simpler_Hasher,
+    typename Hash = Hasher,
+    // Simpler_Hasher,
     // Simple_Hasher,
     typename KeyEqual = std::equal_to< K > >
 struct HashMap
@@ -138,7 +178,7 @@ struct HashMap
 	std::vector< Bucket > data;
 	size_t size_ = 0;
 
-	Hash hasher;
+	Hash *hasher;
 	KeyEqual key_equal;
 	static constexpr double LOAD_FACTOR = 0.7;
 	struct iterator
@@ -250,8 +290,17 @@ struct HashMap
 	HashMap( size_t size = 16 )
 	{
 		reserve( size );
+		hasher = new Simpler_Hasher();
 	}
-
+	void setHasher_( Hash *h )
+	{
+		delete hasher;
+		hasher = h;
+	}
+	~HashMap()
+	{
+		delete hasher;
+	}
 	void reserve( size_t size )
 	{
 		size_t bucket_count = 1;
@@ -306,7 +355,7 @@ outer:;
 
 	inline size_t hash( const K &key ) const
 	{
-		return hasher( key );
+		return hasher->operator()( key );
 	}
 	iterator hash_to_idx( size_t hash ) const
 	{
@@ -316,7 +365,7 @@ outer:;
 	{
 		if ( size_ > 0 )
 		{
-			size_t hash = hasher( key );
+			size_t hash = hasher->operator()( key );
 			size_t hash_mod = hash & ( data.size() - 1 );
 			if ( hash & 1 )
 			{
@@ -343,7 +392,7 @@ outer:;
 		if ( size_ + 1 > data.size() * LOAD_FACTOR )
 			rehash();
 
-		size_t hash = hasher( key );
+		size_t hash = hasher->operator()( key );
 		size_t hash_mod = hash & ( data.size() - 1 );
 		if ( hash & 1 )
 		{
@@ -370,7 +419,7 @@ outer:;
 		if ( size_ + 1 > data.size() * LOAD_FACTOR )
 			rehash();
 
-		size_t hash = hasher( key );
+		size_t hash = hasher->operator()( key );
 		size_t hash_mod = hash & ( data.size() - 1 );
 		if ( hash & 1 )
 		{

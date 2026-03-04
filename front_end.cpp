@@ -116,10 +116,10 @@ namespace front_end
 		auto t0 = std::chrono::high_resolution_clock::now();
 		switch ( s.splitterMode )
 		{
-		case AppState::SplitterMode::Simple :
+		case SplitterMode::Simple :
 			s.finder->_create_index< SimpleSpliter >( s.downCount, s.currentDocIndex );
 			break;
-		case AppState::SplitterMode::Single :
+		case SplitterMode::Single :
 			s.finder->_create_index< SingleCharSpliter >( s.downCount, s.currentDocIndex );
 			break;
 		default :
@@ -132,7 +132,9 @@ namespace front_end
 		    IndexRecord{ s.totalCount,
 		                 s.finder->index.size(),
 		                 s.finder->posCnt,
-		                 s.indexTimeMs } );
+		                 s.indexTimeMs,
+		                 s.splitterMode,
+		                 s.hashMode } );
 	}
 
 	void CreateIndex( AppState &s )
@@ -617,6 +619,20 @@ namespace front_end
 			if ( ImGui::Button( label, ImVec2( fullW, 0 ) ) && ( s.indexStatus == AppState::IndexStatus::NotBuilt || s.indexStatus == AppState::IndexStatus::Append ) )
 				CreateIndex( s );
 			ImGui::PopStyleColor( 4 );
+			if ( s.indexStatus == AppState::IndexStatus::Built || s.indexStatus == AppState::IndexStatus::Append )
+			{
+				ImGui::Spacing();
+				ImGui::PushStyleColor( ImGuiCol_Text, palette::TextWhite );
+
+				ImGui::PushStyleColor( ImGuiCol_Button, palette::Error );
+				ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.90f, 0.2f, 0.28f, 1.00f ) );
+				if ( ImGui::Button( "清空索引", ImVec2( fullW, 0 ) ) )
+				{
+					s.finder->clear_index();
+					s.indexStatus = AppState::IndexStatus::NotBuilt;
+				}
+				ImGui::PopStyleColor( 3 );
+			}
 		}
 
 		ImGui::Spacing();
@@ -650,11 +666,25 @@ namespace front_end
 		for ( size_t i = 0; i < s.docs.size(); ++i )
 		{
 			auto &doc = s.docs[i];
+			if ( doc.deleted ) continue;
 			ImGui::PushID( static_cast< int >( i ) );
 
 			bool prev = doc.selected;
 			ImGui::BeginDisabled( s.indexStatus == AppState::IndexStatus::Building );
 			ImGui::Checkbox( "##sel", &doc.selected );
+
+			ImGui::PushStyleColor( ImGuiCol_Button, IM_COL32( 200, 60, 60, 255 ) );
+			ImGui::PushStyleColor( ImGuiCol_ButtonHovered, IM_COL32( 220, 80, 80, 255 ) );
+			ImGui::PushStyleColor( ImGuiCol_ButtonActive, IM_COL32( 180, 40, 40, 255 ) );
+			ImGui::PushStyleColor( ImGuiCol_Text, palette::TextWhite );
+			ImGui::SameLine();
+			if ( ImGui::SmallButton( "×" ) )
+			{
+				doc.deleted = true;
+				doc.selected = false;
+				s.finder->delete_( i );
+			}
+			ImGui::PopStyleColor( 4 );
 			ImGui::EndDisabled();
 			if ( prev != doc.selected )
 			{
@@ -775,7 +805,7 @@ namespace front_end
 					ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.92f, 0.82f, 0.82f, 1.0f ) );
 					ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.88f, 0.74f, 0.74f, 1.0f ) );
 					ImGui::PushStyleColor( ImGuiCol_Text, palette::Error );
-					if ( ImGui::SmallButton( " × " ) )
+					if ( ImGui::SmallButton( "×" ) )
 					{
 						ImGui::PopStyleColor( 4 );
 						ImGui::PopID();
@@ -794,7 +824,7 @@ namespace front_end
 		ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.82f, 0.88f, 0.98f, 1.0f ) );
 		ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.74f, 0.82f, 0.96f, 1.0f ) );
 		ImGui::PushStyleColor( ImGuiCol_Text, palette::Primary );
-		if ( ImGui::SmallButton( " + " ) )
+		if ( ImGui::SmallButton( "+" ) )
 		{
 			s.queryTerms.push_back( QueryTerm{} );
 		}
@@ -822,7 +852,7 @@ namespace front_end
 			if ( s.indexStatus == AppState::IndexStatus::NotBuilt && !s.docs.empty() )
 			{
 				ImGui::PushStyleColor( ImGuiCol_Text, palette::Warning );
-				ImGui::Text( "* 请先创建索引" );
+				ImGui::Text( "* 需先创建索引" );
 				ImGui::PopStyleColor();
 				ImGui::SameLine();
 			}
@@ -951,7 +981,7 @@ namespace front_end
 		if ( !s.searched )
 		{
 			ImGui::Spacing();
-			ShowTxtInMiddle( "请输入查询词后点击搜索" );
+			ShowTxtInMiddle( "点击搜索按钮以显示" );
 			return;
 		}
 
@@ -1114,7 +1144,7 @@ namespace front_end
 		if ( s.indexStatus == AppState::IndexStatus::NotBuilt )
 		{
 			ImGui::Spacing();
-			ShowTxtInMiddle( "索引尚未建立, 请先创建索引" );
+			ShowTxtInMiddle( "无" );
 			return;
 		}
 
@@ -1138,11 +1168,8 @@ namespace front_end
 		ImGui::PushStyleColor( ImGuiCol_Text, palette::Primary );
 		if ( ImGui::SmallButton( "清空索引" ) )
 		{
-			auto t0 = std::chrono::high_resolution_clock::now();
 			s.finder->clear_index();
 			s.indexStatus = AppState::IndexStatus::NotBuilt;
-			auto t1 = std::chrono::high_resolution_clock::now();
-			s.indexTimeMs = std::chrono::duration< double, std::milli >( t1 - t0 ).count();
 		}
 		ImGui::PopStyleColor( 4 );
 
@@ -1264,7 +1291,7 @@ namespace front_end
 		if ( s.perfHistory.empty() && s.indexHistory.empty() )
 		{
 			ImGui::Spacing();
-			ShowTxtInMiddle( "暂无" );
+			ShowTxtInMiddle( "无" );
 			return;
 		}
 
@@ -1280,6 +1307,10 @@ namespace front_end
 			}
 			double avgMs = totalMs / s.indexHistory.size();
 			ImGui::Text( "[索引概览]" );
+
+			ImGui::Spacing();
+			if ( ImGui::SmallButton( "清空历史##clearIndexHistory" ) )
+				s.indexHistory.clear();
 			ImGui::Spacing();
 			ImGui::Columns( 4, "##indexSummary", false );
 
@@ -1350,6 +1381,33 @@ namespace front_end
 					                                : palette::Primary;
 					dl->AddRectFilled( p0, p1, ImGui::ColorConvertFloat4ToU32( col ), 3.0f );
 
+					std::string spliter_n;
+					switch ( s.indexHistory[i].splitterMode )
+					{
+					case SplitterMode::Simple :
+						spliter_n = "简单分词器";
+						break;
+					default :
+						spliter_n = "单字分词器";
+						break;
+					}
+
+					std::string h_n;
+					switch ( s.indexHistory[i].hashMode )
+					{
+					case HashMode::Simple :
+						h_n = "131 Hash";
+						break;
+					case HashMode::Simpler :
+						h_n = "31 Hash";
+						break;
+					case HashMode::Bin_Up :
+						h_n = "Bin Up Hash";
+						break;
+					default :
+						h_n = "Shift_Hash";
+						break;
+					}
 					if ( ImGui::IsMouseHoveringRect( p0, p1 ) )
 					{
 						ImGui::BeginTooltip();
@@ -1357,6 +1415,9 @@ namespace front_end
 						ImGui::Text( "索引词数: %zu", s.indexHistory[i].keyCount );
 						ImGui::Text( "总词数: %zu", s.indexHistory[i].posCount );
 						ImGui::Text( "耗时: %.5f ms", s.indexHistory[i].timeMs );
+						ImGui::Text( "耗时: %.5f ms", s.indexHistory[i].timeMs );
+						ImGui::Text( "分词器: %s", spliter_n.c_str() );
+						ImGui::Text( "哈希算法: %s", h_n.c_str() );
 						ImGui::EndTooltip();
 					}
 					xOff += barW + spacing;
@@ -1379,6 +1440,9 @@ namespace front_end
 			}
 			double avgMs = totalMs / s.perfHistory.size();
 			ImGui::Text( "[查询概览]" );
+			ImGui::Spacing();
+			if ( ImGui::SmallButton( "清空历史##clearPerfHistory" ) )
+				s.perfHistory.clear();
 			ImGui::Spacing();
 			ImGui::Columns( 4, "##PerfSummary", false );
 
@@ -1472,9 +1536,7 @@ namespace front_end
 		ImGui::Text( "[查询历史]" );
 		ImGui::Spacing();
 
-		if ( ImGui::SmallButton( "清空历史" ) )
-			s.perfHistory.clear();
-		ImGui::Spacing();
+
 
 		ImGuiTableFlags tflags =
 		    ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH |
@@ -1881,6 +1943,7 @@ namespace front_end
 		    24.0f,
 		    nullptr,
 		    io.Fonts->GetGlyphRangesChineseFull() );
+
 		ImGui_ImplGlfw_InitForOpenGL( window, true );
 		ImGui_ImplOpenGL3_Init( "#version 330" );
 
@@ -1889,7 +1952,6 @@ namespace front_end
 
 		AppState state;
 		state.finder = new Finder< char >();
-
 
 		while ( !glfwWindowShouldClose( window ) )
 		{
@@ -1929,23 +1991,44 @@ namespace front_end
 				if ( ImGui::BeginMenu( "索引" ) )
 				{
 					bool canBuild = !state.docs.empty();
-					if ( ImGui::MenuItem( "创建索引", nullptr, false, canBuild ) )
+					if ( ImGui::MenuItem( "创建索引", nullptr, false, canBuild && ( state.indexStatus == AppState::IndexStatus::NotBuilt || state.indexStatus == AppState::IndexStatus::Append ) ) )
 						CreateIndex( state );
 					if ( ImGui::MenuItem( "清空索引", nullptr, false, state.indexStatus == AppState::IndexStatus::Built ) )
 					{
-						auto t0 = std::chrono::high_resolution_clock::now();
 						state.finder->clear_index();
 						state.indexStatus = AppState::IndexStatus::NotBuilt;
-						auto t1 = std::chrono::high_resolution_clock::now();
-						state.indexTimeMs = std::chrono::duration< double, std::milli >( t1 - t0 ).count();
 					}
 					ImGui::BeginDisabled( state.indexStatus == AppState::IndexStatus::Building );
 					if ( ImGui::BeginMenu( "分词方式" ) )
 					{
-						if ( ImGui::MenuItem( "单字符分词器", "utf-8", state.splitterMode == AppState::SplitterMode::Single ) )
-							state.splitterMode = AppState::SplitterMode::Single;
-						if ( ImGui::MenuItem( "简单分词器", "仅支持英文", state.splitterMode == AppState::SplitterMode::Simple ) )
-							state.splitterMode = AppState::SplitterMode::Simple;
+						if ( ImGui::MenuItem( "单字符分词器", "utf-8", state.splitterMode == SplitterMode::Single ) )
+							state.splitterMode = SplitterMode::Single;
+						if ( ImGui::MenuItem( "简单分词器", "仅支持英文", state.splitterMode == SplitterMode::Simple ) )
+							state.splitterMode = SplitterMode::Simple;
+						ImGui::EndMenu();
+					}
+					if ( ImGui::BeginMenu( "哈希算法" ) )
+					{
+						if ( ImGui::MenuItem( "131 Hash", nullptr, state.hashMode == HashMode::Simple ) )
+						{
+							state.hashMode = HashMode::Simple;
+							state.finder->index.setHasher_( new Simple_Hasher() );
+						}
+						if ( ImGui::MenuItem( "31 Hash", nullptr, state.hashMode == HashMode::Simpler ) )
+						{
+							state.hashMode = HashMode::Simpler;
+							state.finder->index.setHasher_( new Simpler_Hasher() );
+						}
+						if ( ImGui::MenuItem( "Bin Up Hash", nullptr, state.hashMode == HashMode::Bin_Up ) )
+						{
+							state.hashMode = HashMode::Bin_Up;
+							state.finder->index.setHasher_( new Bin_Up_Hasher() );
+						}
+						if ( ImGui::MenuItem( "Shift Hash", nullptr, state.hashMode == HashMode::Shift ) )
+						{
+							state.hashMode = HashMode::Shift;
+							state.finder->index.setHasher_( new Shift_Hasher() );
+						}
 						ImGui::EndMenu();
 					}
 					ImGui::EndDisabled();

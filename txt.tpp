@@ -8,18 +8,23 @@ struct TXT
 	{
 		Selected,
 		Fail_Loaded,
-		Not_Selected
+		Not_Selected,
+		Deleted
 	};
 	using char_type = C;
 	size_t position = 0, last_position = -1;
 	Status status = Status::Selected;
 	void select()
 	{
-		if ( status != Status::Fail_Loaded ) status = Status::Selected;
+		if ( status != Status::Not_Selected ) status = Status::Selected;
 	}
 	void deselect()
 	{
-		if ( status != Status::Fail_Loaded ) status = Status::Not_Selected;
+		if ( status == Status::Selected ) status = Status::Not_Selected;
+	}
+	void delete_()
+	{
+		status = Status::Deleted;
 	}
 	bool isSelected() const { return status == Status::Selected; }
 	template < typename M, typename IC, typename S >
